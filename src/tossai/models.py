@@ -64,6 +64,45 @@ class AnalyzedCandidate(BaseModel):
     output_tokens: int = 0
 
 
+class PortfolioAction(str, Enum):
+    ADD = "ADD"      # 추가매수
+    HOLD = "HOLD"    # 유지
+    TRIM = "TRIM"    # 축소
+    SELL = "SELL"    # 전량 매도
+    ANALYSIS_FAILED = "ANALYSIS_FAILED"
+
+
+class Position(BaseModel):
+    """A held position from the Toss holdings endpoint."""
+
+    symbol: str
+    market: str
+    name: str | None = None
+    quantity: float = 0.0
+    avg_price: float = 0.0
+    last_price: float = 0.0
+    pl_rate: float | None = None       # fraction, 1.796 == +179.6%
+    market_value: float = 0.0
+    currency: str | None = None
+
+
+class PositionAdvice(BaseModel):
+    """Claude's position-aware advice (analysis only — never an order)."""
+
+    action: PortfolioAction
+    confidence: float = Field(ge=0.0, le=1.0)
+    target_price: float | None = None
+    rationale: str = ""
+    risks: list[str] = Field(default_factory=list)
+
+
+class AnalyzedPosition(BaseModel):
+    position: Position
+    advice: PositionAdvice
+    input_tokens: int = 0
+    output_tokens: int = 0
+
+
 DISCLAIMER = (
     "This output is automated analysis for informational purposes only and is "
     "NOT financial advice. No orders are placed. Markets carry risk of loss."

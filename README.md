@@ -94,6 +94,7 @@ cp config/universe.example.yaml config/universe.yaml
 | `run-loop [--deep]` | 주기 반복, 장중에만 분석 |
 | `serve` | **Slack 인터랙티브 서버 + 브리핑/리스크 스케줄러** (상주) |
 | `backtest [--years --rebalance --top --weighting]` | 전략 앙상블 **워크포워드 백테스트** (Claude·주문 없음) |
+| `portfolio [--deep]` | **보유 종목**에 ADD/HOLD/TRIM/SELL 조언 + 평가손익 (`TOSS_ACCOUNT_SEQ` 필요, 주문 없음) |
 
 `--deep`는 `CLAUDE_MODEL_DEEP`(기본 `claude-opus-4-8`)로 더 깊은 분석을 수행합니다.
 

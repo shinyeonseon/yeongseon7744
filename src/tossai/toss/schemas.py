@@ -14,10 +14,14 @@ Confirmed shapes:
 from __future__ import annotations
 
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict
 
 from tossai.models import Candle
+
+if TYPE_CHECKING:
+    from tossai.models import Position
 
 
 class TokenResponse(BaseModel):
@@ -40,6 +44,52 @@ class QuoteResponse(BaseModel):
 
     symbol: str
     price: float | None = None
+
+
+class AccountRaw(BaseModel):
+    """GET /api/v1/accounts item: {"accountNo","accountSeq","accountType"}."""
+
+    model_config = ConfigDict(extra="allow")
+
+    accountNo: str | None = None  # noqa: N815 - Toss field name
+    accountSeq: int  # noqa: N815
+    accountType: str | None = None  # noqa: N815
+
+
+class HoldingItemRaw(BaseModel):
+    """One position from GET /api/v1/holdings result.items[] (string values)."""
+
+    model_config = ConfigDict(extra="allow")
+
+    symbol: str
+    name: str | None = None
+    marketCountry: str | None = None  # noqa: N815 - "US" / "KR"
+    currency: str | None = None
+    quantity: float = 0.0
+    lastPrice: float = 0.0  # noqa: N815
+    averagePurchasePrice: float = 0.0  # noqa: N815
+
+    def to_position(self) -> Position:
+        from tossai.models import Position
+
+        market = "US" if (self.marketCountry or "").upper() == "US" else "KRX"
+        extra = self.model_extra or {}
+        pl = extra.get("profitLoss") or {}
+        mv = extra.get("marketValue") or {}
+        return Position(
+            symbol=self.symbol, market=market, name=self.name,
+            quantity=self.quantity, avg_price=self.averagePurchasePrice,
+            last_price=self.lastPrice, currency=self.currency,
+            pl_rate=_as_float(pl.get("rate")),
+            market_value=_as_float(mv.get("amount")) or 0.0,
+        )
+
+
+def _as_float(value: object) -> float | None:
+    try:
+        return float(value) if value not in (None, "") else None
+    except (TypeError, ValueError):
+        return None
 
 
 class CandleRaw(BaseModel):

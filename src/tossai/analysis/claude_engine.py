@@ -89,6 +89,51 @@ class ClaudeEngine:
         out_tok = getattr(usage, "output_tokens", 0) or 0
         return rec, in_tok, out_tok
 
+    def analyze_position(self, position, signals: dict):
+        """Advise on a held position (ADD/HOLD/TRIM/SELL). Analysis-only."""
+        from tossai.analysis.portfolio_prompts import (
+            POSITION_TOOL,
+            build_position_message,
+        )
+        from tossai.analysis.portfolio_prompts import (
+            SYSTEM_PROMPT as POS_SYSTEM,
+        )
+        from tossai.models import AnalyzedPosition, PortfolioAction, PositionAdvice
+
+        try:
+            resp = self._client.messages.create(
+                model=self.model,
+                max_tokens=self.s.claude_max_tokens,
+                system=POS_SYSTEM,
+                tools=[POSITION_TOOL],
+                tool_choice={"type": "tool", "name": "submit_position_advice"},
+                messages=[{"role": "user", "content": build_position_message(position, signals)}],
+            )
+            advice = None
+            for block in getattr(resp, "content", []) or []:
+                if getattr(block, "type", None) == "tool_use":
+                    advice = PositionAdvice.model_validate(block.input)
+                    break
+            if advice is None:
+                raise ValueError("no submit_position_advice tool_use block")
+            usage = getattr(resp, "usage", None)
+            in_tok = getattr(usage, "input_tokens", 0) or 0
+            out_tok = getattr(usage, "output_tokens", 0) or 0
+        except Exception as exc:
+            log.warning("position analysis failed for %s: %s", position.symbol, exc)
+            return AnalyzedPosition(
+                position=position,
+                advice=PositionAdvice(
+                    action=PortfolioAction.ANALYSIS_FAILED, confidence=0.0,
+                    rationale=f"Analysis failed: {exc}", risks=["analysis_error"],
+                ),
+            )
+        self.total_input_tokens += in_tok
+        self.total_output_tokens += out_tok
+        return AnalyzedPosition(
+            position=position, advice=advice, input_tokens=in_tok, output_tokens=out_tok,
+        )
+
     def estimated_cost_usd(self) -> float:
         price_in, price_out = _PRICE_PER_MTOK.get(self.model, (3.0, 15.0))
         return (

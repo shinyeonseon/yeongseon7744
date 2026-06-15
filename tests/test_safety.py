@@ -54,7 +54,8 @@ def test_slack_scheduler_risk_packages_have_no_order_path():
 
     base = os.path.dirname(tossai.__file__)
     suspect = []
-    pkgs = ("slack", "scheduler", "risk", "screening", os.path.join("screening", "strategies"))
+    pkgs = ("slack", "scheduler", "risk", "portfolio", "screening",
+            os.path.join("screening", "strategies"))
     for pkg in pkgs:
         for path in glob.glob(os.path.join(base, pkg, "*.py")):
             tree = ast.parse(open(path, encoding="utf-8").read())

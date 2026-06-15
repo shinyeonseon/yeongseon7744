@@ -128,8 +128,38 @@ class TossClient:
             return data["result"].get("candles", []) or []
         return _unwrap_list(data, keys=("candles", "items", "data"))
 
+    def get_accounts(self) -> list:
+        """GET /api/v1/accounts -> [Account]. Returns raw AccountRaw list."""
+        from tossai.toss.schemas import AccountRaw
+
+        data = self._get("/api/v1/accounts")
+        rows = _unwrap_list(data, keys=("result", "accounts", "items", "data"))
+        out = []
+        for row in rows:
+            try:
+                out.append(AccountRaw.model_validate(row))
+            except Exception as exc:
+                log.debug("skip malformed account: %s", exc)
+        return out
+
+    def get_holdings(self) -> list:
+        """GET /api/v1/holdings (account-scoped) -> list[Position]."""
+        from tossai.toss.schemas import HoldingItemRaw
+
+        data = self._get("/api/v1/holdings", account_scoped=True)
+        items = []
+        if isinstance(data, dict) and isinstance(data.get("result"), dict):
+            items = data["result"].get("items", []) or []
+        positions = []
+        for row in items:
+            try:
+                positions.append(HoldingItemRaw.model_validate(row).to_position())
+            except Exception as exc:
+                log.debug("skip malformed holding: %s", exc)
+        return positions
+
     def get_balances(self) -> dict:
-        """Holdings (account-scoped: Bearer + X-Tossinvest-Account)."""
+        """Raw holdings payload (account-scoped: Bearer + X-Tossinvest-Account)."""
         return self._get("/api/v1/holdings", account_scoped=True)
 
 

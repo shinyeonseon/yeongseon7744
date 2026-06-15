@@ -112,6 +112,27 @@ def run_once(
 
 
 @app.command()
+def portfolio(
+    deep: bool = typer.Option(False, "--deep", help="Use the deeper Claude model."),
+) -> None:
+    """Advise ADD/HOLD/TRIM/SELL on your held Toss positions (no orders)."""
+    settings = _boot()
+    from tossai.analysis.claude_engine import ClaudeEngine
+    from tossai.output import portfolio_report as pr
+    from tossai.portfolio.analyzer import PortfolioAnalyzer
+    from tossai.toss.client import TossClient
+
+    if not settings.toss_account_seq:
+        log.warning("TOSS_ACCOUNT_SEQ is not set — holdings call needs it. "
+                    "Find it via `accounts` (accountSeq) and set it in .env.")
+    with TossClient(settings) as client:
+        engine = ClaudeEngine(settings, deep=deep)
+        report = PortfolioAnalyzer(settings, client, engine).run()
+    typer.echo(pr.console_table(report))
+    pr.save_report(report, settings.reports_dir)
+
+
+@app.command()
 def backtest(
     years: float = typer.Option(3.0, "--years", help="Years of history to fetch."),
     rebalance: int = typer.Option(21, "--rebalance", help="Rebalance every N trading days."),

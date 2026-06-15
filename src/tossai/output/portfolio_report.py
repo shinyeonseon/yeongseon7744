@@ -1,0 +1,56 @@
+"""Portfolio advice report: per-position P&L + ADD/HOLD/TRIM/SELL advice."""
+
+from __future__ import annotations
+
+from datetime import UTC, datetime
+from pathlib import Path
+
+from pydantic import BaseModel, Field
+
+from tossai.logging_setup import get_logger
+from tossai.models import DISCLAIMER, AnalyzedPosition
+
+log = get_logger(__name__)
+
+_ACTION_EMOJI = {"ADD": "🟢", "HOLD": "⚪", "TRIM": "🟠", "SELL": "🔴", "ANALYSIS_FAILED": "⚠️"}
+
+
+class PortfolioReport(BaseModel):
+    generated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    positions_count: int = 0
+    results: list[AnalyzedPosition] = Field(default_factory=list)
+    estimated_cost_usd: float = 0.0
+    disclaimer: str = DISCLAIMER
+
+
+def save_report(report: PortfolioReport, reports_dir: str) -> Path:
+    Path(reports_dir).mkdir(parents=True, exist_ok=True)
+    stamp = report.generated_at.strftime("%Y-%m-%d_%H%M%S")
+    path = Path(reports_dir) / f"portfolio_{stamp}.json"
+    path.write_text(report.model_dump_json(indent=2))
+    log.info("portfolio report written to %s", path)
+    return path
+
+
+def console_table(report: PortfolioReport) -> str:
+    lines = [
+        f"=== Portfolio advice {report.generated_at:%Y-%m-%d %H:%M UTC} "
+        f"({report.positions_count} positions, ~${report.estimated_cost_usd:.4f}) ===",
+        f"{'SYMBOL':<8}{'MKT':<5}{'QTY':>6} {'AVG':>11} {'LAST':>11} {'P&L%':>8}  "
+        f"{'ACTION':<8}{'CONF':<6}RATIONALE",
+        "-" * 92,
+    ]
+    if not report.results:
+        lines.append("(no holdings found — check TOSS_ACCOUNT_SEQ)")
+    for r in report.results:
+        p, a = r.position, r.advice
+        emoji = _ACTION_EMOJI.get(a.action.value, "")
+        pl = f"{p.pl_rate * 100:+.1f}" if p.pl_rate is not None else "-"
+        rationale = (a.rationale[:42] + "…") if len(a.rationale) > 43 else a.rationale
+        lines.append(
+            f"{p.symbol:<8}{p.market:<5}{p.quantity:>6.0f} {p.avg_price:>11.2f} "
+            f"{p.last_price:>11.2f} {pl:>8}  {emoji}{a.action.value:<7}{a.confidence:<6.2f}{rationale}"
+        )
+    lines.append("-" * 92)
+    lines.append(DISCLAIMER)
+    return "\n".join(lines)
