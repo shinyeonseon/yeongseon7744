@@ -6,7 +6,9 @@ set -euo pipefail
 APP_DIR="${APP_DIR:-/opt/tossai}"
 ENV_DIR="/etc/tossai"
 REPO_URL="${REPO_URL:-}"        # optional: git URL to clone if APP_DIR is empty
+BRANCH="${BRANCH:-claude/toss-securities-investment-ai-0lus7s}"
 PY="${PY:-python3.11}"
+INSTALL_FUNDAMENTALS="${INSTALL_FUNDAMENTALS:-1}"  # 1 = also install pykrx/yfinance
 
 echo "==> Installing system packages"
 if command -v dnf >/dev/null 2>&1; then
@@ -22,12 +24,20 @@ if [ -n "$REPO_URL" ] && [ ! -d "$APP_DIR/.git" ]; then
   git clone "$REPO_URL" "$APP_DIR"
 fi
 cd "$APP_DIR"
+# Ensure we are on the intended branch (best-effort; ignore if already there).
+git checkout "$BRANCH" 2>/dev/null || true
+git pull --ff-only 2>/dev/null || true
 
 echo "==> Creating virtualenv"
 "$PY" -m venv .venv
 ./.venv/bin/pip install --upgrade pip
 ./.venv/bin/pip install -r requirements.txt
 ./.venv/bin/pip install -e .
+if [ "$INSTALL_FUNDAMENTALS" = "1" ]; then
+  echo "==> Installing fundamentals extra (pykrx/yfinance for value/quality strategies)"
+  ./.venv/bin/pip install -e ".[fundamentals]" || \
+    echo "    -> fundamentals extra failed to install; value/quality strategies will skip."
+fi
 
 echo "==> Setting up secrets at $ENV_DIR/.env (chmod 600)"
 sudo mkdir -p "$ENV_DIR"

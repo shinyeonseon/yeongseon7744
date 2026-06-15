@@ -159,11 +159,13 @@ curl -X POST localhost:8080/slack/commands -H "X-Slack-Request-Timestamp: $TS" \
 
 ## EC2 배포
 
+> 무인 자동화 전체 절차(키·Slack 자동푸시·systemd·비용 가드·검증)는 **[`deploy/DEPLOY.md`](deploy/DEPLOY.md)** 런북 참고.
+
 ```bash
 # EC2에서 (Amazon Linux/Ubuntu)
 export REPO_URL=<this repo url>
-bash deploy/setup.sh            # venv 구성, 의존성, /etc/tossai/.env(600), systemd 설치
-sudo vi /etc/tossai/.env        # 키 입력
+bash deploy/setup.sh            # venv, 의존성(+fundamentals), /etc/tossai/.env(600), systemd 설치
+sudo vi /etc/tossai/.env        # 키 입력 (자동 Slack 푸시는 ALERT_CHANNELS=console,slack)
 cd /opt/tossai && ./.venv/bin/python -m tossai doctor   # 스모크 테스트
 ```
 
