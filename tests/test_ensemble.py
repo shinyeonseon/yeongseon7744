@@ -86,7 +86,8 @@ def test_build_strategy_multi_returns_ensemble(s):
     s.strategy = "technical_swing,dual_momentum"
     strat = build_strategy(s)
     assert isinstance(strat, StrategyEnsemble)
-    assert strat.required_history >= 254  # dual momentum drives it
+    # dual momentum (lookback+skip+2) drives the requirement above technical_swing
+    assert strat.required_history == s.dm_lookback_days + s.dm_skip_days + 2
 
 
 def test_build_strategy_unknown_skipped(s):

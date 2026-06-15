@@ -32,9 +32,9 @@ class DualMomentumStrategy(BaseStrategy):
 
         price = float(close.iloc[-1])
         above_sma200 = True
-        if s.dm_require_trend and len(close) >= 200:
-            sma200 = ind.sma(close, 200).iloc[-1]
-            above_sma200 = not pd.isna(sma200) and price > float(sma200)
+        if s.dm_require_trend and len(close) >= s.trend_ma:
+            sma_t = ind.sma(close, s.trend_ma).iloc[-1]
+            above_sma200 = not pd.isna(sma_t) and price > float(sma_t)
 
         # Absolute momentum gate: beat the threshold (default 0 == cash) and,
         # optionally, be in an uptrend.
@@ -52,7 +52,7 @@ class DualMomentumStrategy(BaseStrategy):
                 "lookback_days": s.dm_lookback_days,
                 "skip_days": s.dm_skip_days,
                 "abs_threshold": s.dm_abs_threshold,
-                "above_sma200": above_sma200,
+                "above_trend_ma": above_sma200,
                 "passed_abs": passed_abs,
             },
             price=price, atr=None, bucket=self.bucket, strategy=self.name,

@@ -85,9 +85,11 @@ class TossClient:
             price=float(last) if last not in (None, "") else None,
         )
 
-    def get_candles(self, symbol: str, interval: str = "1d", count: int = 300) -> list[Candle]:
+    def get_candles(self, symbol: str, interval: str = "1d", count: int = 200) -> list[Candle]:
         # GET /api/v1/candles -> {"result":{"candles":[{"timestamp","openPrice",...}]}}
-        # interval ∈ {"1d","1m"}. Toss returns newest-first; we sort chronologically.
+        # interval ∈ {"1d","1m"}. Toss caps count at 200/call and returns
+        # newest-first; we clamp and sort chronologically.
+        count = max(1, min(int(count), 200))
         data = self._get(
             "/api/v1/candles",
             params={"symbol": symbol, "interval": interval, "count": count},

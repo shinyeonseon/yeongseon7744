@@ -62,26 +62,31 @@ class Settings(BaseSettings):
         "meb_faber,momentum_quality,low_volatility,"
         "graham,magic_formula,buffett_quality,piotroski"
     )
-    candle_count: int = 0  # 0 = auto: max(required_history, 260)
+    candle_count: int = 0  # 0 = auto. Capped to toss_candle_max (Toss: 200/call).
+    # Toss /api/v1/candles returns at most 200 bars per request; lookbacks below
+    # are sized to fit one call. trend_ma replaces a 200-day MA so the long
+    # strategies still run within the 200-bar budget.
+    toss_candle_max: int = 200
+    trend_ma: int = 150
     # Dual momentum
-    dm_lookback_days: int = 252
+    dm_lookback_days: int = 120
     dm_skip_days: int = 0
     dm_abs_threshold: float = 0.0
     dm_require_trend: bool = True
     dm_score_cap: float = 0.5
     # CAN SLIM (technical subset)
     canslim_high_proximity_pct: float = 0.15
-    canslim_rs_lookback: int = 252
+    canslim_rs_lookback: int = 120
     canslim_rs_min: float = 0.70
     canslim_vol_ratio_min: float = 1.5
     canslim_max_vix: float = 25.0
     # Mean reversion
-    mean_rev_ma: int = 200
+    mean_rev_ma: int = 150
     mean_rev_rsi_low: float = 35.0
     mean_rev_support_lookback: int = 20
     mean_rev_support_pos: float = 0.25
     # Trend breakout
-    breakout_lookback: int = 252
+    breakout_lookback: int = 120
     breakout_vol_window: int = 20
     breakout_vol_ratio_min: float = 1.5
     # Market regime (VIX based)
@@ -90,14 +95,14 @@ class Settings(BaseSettings):
     regime_riskoff_weight: float = 0.5
 
     # ---- Investment-master strategies (price-based) ----
-    # Meb Faber GTAA trend timing (10-month / ~200d SMA).
-    meb_faber_ma: int = 200
-    # Momentum quality (12-1 momentum + frog-in-the-pan smoothness).
-    momq_lookback: int = 252
-    momq_skip: int = 21
+    # Meb Faber GTAA trend timing (~150d SMA, fits the 200-bar budget).
+    meb_faber_ma: int = 150
+    # Momentum quality (momentum + frog-in-the-pan smoothness).
+    momq_lookback: int = 120
+    momq_skip: int = 10
     momq_score_cap: float = 0.5
     # Low-volatility factor.
-    lowvol_lookback: int = 126
+    lowvol_lookback: int = 100
     lowvol_vol_cap: float = 0.03  # daily-return std where score → 0
     # Risk-parity / All-Weather inverse-vol weighting overlay (suggestion only).
     risk_parity_lookback: int = 63
@@ -167,8 +172,10 @@ class Settings(BaseSettings):
         return [s.strip().lower() for s in self.strategy.split(",") if s.strip()]
 
     def resolved_candle_count(self, required_history: int) -> int:
-        """How many candles to fetch: enough for the heaviest active strategy."""
-        return max(self.candle_count, required_history, 260)
+        """How many candles to fetch: enough for the heaviest active strategy,
+        capped at the Toss per-call maximum (200)."""
+        want = max(self.candle_count or self.toss_candle_max, required_history)
+        return min(want, self.toss_candle_max)
 
     def enforce_safety(self) -> None:
         """Hard guard: v1 must never trade. Call once at startup."""

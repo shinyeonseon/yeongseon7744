@@ -44,8 +44,8 @@ class MomentumQualityStrategy(BaseStrategy):
         fip = sign * (down - up)          # negative == smooth uptrend (good)
         smoothness = _clip((1.0 - fip) / 2.0)
 
-        ma200 = ind.sma(close, 200).iloc[-1]
-        above = pd.notna(ma200) and price > float(ma200)
+        ma_t = ind.sma(close, self.s.trend_ma).iloc[-1]
+        above = pd.notna(ma_t) and price > float(ma_t)
         passed = r > 0 and above
         score = (0.7 * _clip(r / s.momq_score_cap) + 0.3 * smoothness) if passed else 0.0
 
@@ -55,7 +55,7 @@ class MomentumQualityStrategy(BaseStrategy):
                 "momentum_12_1": round(r, 4),
                 "fip": round(fip, 4),
                 "smoothness": round(smoothness, 3),
-                "above_sma200": above,
+                "above_trend_ma": above,
             },
             price=price, atr=None, bucket=self.bucket, strategy=self.name,
             passed=passed, reason="" if passed else "momentum/trend filter",

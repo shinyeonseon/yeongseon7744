@@ -17,7 +17,7 @@ class TrendBreakoutStrategy(BaseStrategy):
 
     def __init__(self, settings: Settings):
         super().__init__(settings)
-        self.required_history = settings.breakout_lookback + 2
+        self.required_history = max(settings.breakout_lookback, settings.trend_ma) + 2
 
     def evaluate(self, symbol: str, candles: list[Candle], market: str) -> StrategyResult | None:
         s = self.s
@@ -34,15 +34,15 @@ class TrendBreakoutStrategy(BaseStrategy):
         prev_high = None if pd.isna(prev_high) else float(prev_high)
         vol_ratio = ind.volume_ratio(df["volume"], s.breakout_vol_window).iloc[-1]
         vol_ratio = 0.0 if pd.isna(vol_ratio) else float(vol_ratio)
-        ma200 = float(ind.sma(close, 200).iloc[-1]) if len(close) >= 200 else last
+        ma_t = float(ind.sma(close, s.trend_ma).iloc[-1]) if len(close) >= s.trend_ma else last
 
         broke_out = prev_high is not None and last > prev_high
         vol_ok = vol_ratio >= s.breakout_vol_ratio_min
-        trend_ok = last > ma200
+        trend_ok = last > ma_t
         passed = broke_out and vol_ok and trend_ok
 
         breakout_pct = (last / prev_high - 1.0) if prev_high else 0.0
-        trend_margin = _clip((last / ma200 - 1.0) / 0.10)
+        trend_margin = _clip((last / ma_t - 1.0) / 0.10)
         score = (
             0.45 * _clip(breakout_pct / 0.05)
             + 0.35 * _clip(vol_ratio - 1.0)
@@ -57,7 +57,7 @@ class TrendBreakoutStrategy(BaseStrategy):
                 "prior_high": round(prev_high, 4) if prev_high else None,
                 "breakout_pct": round(breakout_pct * 100, 2),
                 "volume_ratio": round(vol_ratio, 3),
-                "above_ma200": last > ma200,
+                "above_trend_ma": last > ma_t,
             },
             price=last, atr=None, bucket=self.bucket, strategy=self.name,
             passed=passed, reason="" if passed else "failed: " + ",".join(reasons),

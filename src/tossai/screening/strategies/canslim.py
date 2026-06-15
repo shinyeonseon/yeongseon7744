@@ -23,7 +23,7 @@ class CanSlimTechnicalStrategy(BaseStrategy):
 
     def __init__(self, settings: Settings):
         super().__init__(settings)
-        self.required_history = max(settings.canslim_rs_lookback, 200) + 2
+        self.required_history = max(settings.canslim_rs_lookback, settings.trend_ma) + 2
         self.vix: float | None = None
 
     def set_vix(self, vix: float | None) -> None:
@@ -44,20 +44,20 @@ class CanSlimTechnicalStrategy(BaseStrategy):
         vol_ratio = ind.volume_ratio(df["volume"], 50).iloc[-1]
         vol_ratio = 0.0 if pd.isna(vol_ratio) else float(vol_ratio)
         ma50 = float(ind.sma(close, 50).iloc[-1])
-        ma200 = float(ind.sma(close, 200).iloc[-1])
+        ma_trend = float(ind.sma(close, s.trend_ma).iloc[-1])
         ann_return = ind.total_return(close, s.canslim_rs_lookback) or 0.0
 
         near_high = last >= hi52 * (1.0 - s.canslim_high_proximity_pct)
         rs_ok = rs_pos >= s.canslim_rs_min and ann_return > 0
         vol_ok = vol_ratio >= s.canslim_vol_ratio_min
-        trend_ok = last > ma50 > ma200
+        trend_ok = last > ma50 > ma_trend
         # Market direction (M): suppress in a stressed tape. None == no data → allow.
         market_ok = self.vix is None or self.vix <= s.canslim_max_vix
 
         passed = near_high and rs_ok and vol_ok and trend_ok and market_ok
 
         proximity = _clip(1.0 - (hi52 - last) / (hi52 * s.canslim_high_proximity_pct))
-        trend_margin = _clip((last / ma200 - 1.0) / 0.10)
+        trend_margin = _clip((last / ma_trend - 1.0) / 0.10)
         score = (
             0.30 * rs_pos
             + 0.25 * proximity
@@ -76,7 +76,7 @@ class CanSlimTechnicalStrategy(BaseStrategy):
                 "range_position": round(rs_pos, 3),
                 "volume_ratio_50": round(vol_ratio, 3),
                 "above_ma50": last > ma50,
-                "above_ma200": last > ma200,
+                "above_trend_ma": last > ma_trend,
                 "vix": self.vix,
                 "market_ok": market_ok,
                 "note": "technical subset — no fundamentals",
