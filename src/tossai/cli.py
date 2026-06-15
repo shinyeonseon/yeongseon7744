@@ -111,6 +111,42 @@ def run_once(
     typer.echo(f"Done. screened={report.screened_count} cost~${report.estimated_cost_usd:.4f}")
 
 
+@app.command()
+def backtest(
+    years: float = typer.Option(3.0, "--years", help="Years of history to fetch."),
+    rebalance: int = typer.Option(21, "--rebalance", help="Rebalance every N trading days."),
+    top: int = typer.Option(5, "--top", help="Hold the top-N candidates each rebalance."),
+    weighting: str = typer.Option("equal", "--weighting", help="equal | inverse_vol"),
+) -> None:
+    """Walk-forward backtest of the strategy ensemble (no Claude, no orders)."""
+    settings = _boot()
+    from tossai.backtest.engine import walk_forward_backtest
+    from tossai.market.universe import load_universe
+    from tossai.screening.strategies.ensemble import build_strategy
+    from tossai.toss.client import TossClient
+
+    symbols = load_universe(settings.universe_file, settings.market.value)
+    strategy = build_strategy(settings)
+    count = max(int(years * 252) + 10, getattr(strategy, "required_history", 260) + 10)
+
+    candle_map: dict = {}
+    markets: dict = {}
+    with TossClient(settings) as client:
+        for sym in symbols:
+            try:
+                candle_map[sym.symbol] = client.get_candles(sym.symbol, count=count)
+                markets[sym.symbol] = sym.market
+            except Exception as exc:
+                log.warning("backtest candle fetch failed for %s: %s", sym.symbol, exc)
+
+    result = walk_forward_backtest(
+        candle_map, strategy, markets,
+        rebalance_days=rebalance, top_n=top, weighting=weighting,
+        risk_parity_lookback=settings.risk_parity_lookback,
+    )
+    typer.echo(result.summary())
+
+
 @app.command("run-loop")
 def run_loop(
     deep: bool = typer.Option(False, "--deep", help="Use the deeper Claude model."),

@@ -93,8 +93,14 @@ cp config/universe.example.yaml config/universe.yaml
 | `run-once [--force] [--deep]` | 전체 1회 실행 후 종료 (cron/systemd용) |
 | `run-loop [--deep]` | 주기 반복, 장중에만 분석 |
 | `serve` | **Slack 인터랙티브 서버 + 브리핑/리스크 스케줄러** (상주) |
+| `backtest [--years --rebalance --top --weighting]` | 전략 앙상블 **워크포워드 백테스트** (Claude·주문 없음) |
 
 `--deep`는 `CLAUDE_MODEL_DEEP`(기본 `claude-opus-4-8`)로 더 깊은 분석을 수행합니다.
+
+**백테스트**: `python -m tossai backtest --years 3 --rebalance 21 --top 5`. 매 리밸런스일에
+그 시점까지의 데이터로만 전략을 돌려(룩어헤드 없음) 상위 N종목을 보유, 일별 자산곡선과
+CAGR·Sharpe·MDD·승률을 동일가중 매수후보유 벤치마크와 비교합니다. (전략의 객관적 검증 수단 —
+실데이터는 토스 API 필요. `--weighting inverse_vol`로 리스크패리티 비중 시뮬레이션.)
 
 ## Slack 연동 (인터랙티브 + 브리핑 + 리스크 경보)
 
@@ -172,7 +178,7 @@ cd /opt/tossai && ./.venv/bin/python -m tossai doctor   # 스모크 테스트
 ## 테스트
 
 ```bash
-./.venv/bin/python -m pytest      # 131 tests, 모든 외부 API 모킹
+./.venv/bin/python -m pytest      # 136 tests, 모든 외부 API 모킹
 ./.venv/bin/ruff check .
 ```
 
