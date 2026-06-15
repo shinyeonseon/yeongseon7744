@@ -8,6 +8,8 @@ place. Order endpoints are intentionally absent (see ``orders.py``).
 
 from __future__ import annotations
 
+import time
+
 import httpx
 from tenacity import (
     retry,
@@ -85,28 +87,46 @@ class TossClient:
             price=float(last) if last not in (None, "") else None,
         )
 
+    _PER_CALL = 200  # Toss caps count at 200 bars per request
+
     def get_candles(self, symbol: str, interval: str = "1d", count: int = 200) -> list[Candle]:
-        # GET /api/v1/candles -> {"result":{"candles":[{"timestamp","openPrice",...}]}}
-        # interval ∈ {"1d","1m"}. Toss caps count at 200/call and returns
-        # newest-first; we clamp and sort chronologically.
-        count = max(1, min(int(count), 200))
-        data = self._get(
-            "/api/v1/candles",
-            params={"symbol": symbol, "interval": interval, "count": count},
-        )
-        rows = []
+        """Fetch up to ``count`` daily/minute bars, paging past the 200/call cap.
+
+        GET /api/v1/candles -> {"result":{"candles":[{"timestamp","openPrice",...}]}}
+        Toss returns newest-first; older pages are fetched with the ``before``
+        cursor (the oldest bar's full ISO timestamp). Returns chronological order.
+        """
+        want = max(1, int(count))
+        collected: dict = {}  # ts -> Candle (dedupe across page boundaries)
+        before: str | None = None
+        max_pages = want // self._PER_CALL + 2
+        for _ in range(max_pages):
+            params = {"symbol": symbol, "interval": interval, "count": self._PER_CALL}
+            if before is not None:
+                params["before"] = before
+            rows = self._candle_rows(self._get("/api/v1/candles", params=params))
+            if not rows:
+                break
+            for row in rows:
+                try:
+                    c = CandleRaw.model_validate(row).to_candle()
+                    collected[c.ts] = c
+                except Exception as exc:  # tolerate a single malformed bar
+                    log.debug("skip malformed candle for %s: %s", symbol, exc)
+            if len(collected) >= want or len(rows) < self._PER_CALL:
+                break
+            before = rows[-1].get("timestamp")  # oldest bar (newest-first) → page back
+            if not before:
+                break
+            time.sleep(0.25)  # stay under the chart rate limit (5/s)
+        candles = sorted(collected.values(), key=lambda c: c.ts)
+        return candles[-want:]
+
+    @staticmethod
+    def _candle_rows(data: object) -> list:
         if isinstance(data, dict) and isinstance(data.get("result"), dict):
-            rows = data["result"].get("candles", [])
-        if not rows:
-            rows = _unwrap_list(data, keys=("candles", "items", "data"))
-        candles: list[Candle] = []
-        for row in rows:
-            try:
-                candles.append(CandleRaw.model_validate(row).to_candle())
-            except Exception as exc:  # tolerate a single malformed bar
-                log.debug("skip malformed candle for %s: %s", symbol, exc)
-        candles.sort(key=lambda c: c.ts)  # oldest -> newest
-        return candles
+            return data["result"].get("candles", []) or []
+        return _unwrap_list(data, keys=("candles", "items", "data"))
 
     def get_balances(self) -> dict:
         """Holdings (account-scoped: Bearer + X-Tossinvest-Account)."""

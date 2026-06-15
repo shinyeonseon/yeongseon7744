@@ -64,6 +64,35 @@ def test_get_candles_parses(settings, tmp_path):
     assert candles[1].volume == 200
 
 
+def test_get_candles_pages_with_before(settings, tmp_path):
+    from datetime import datetime, timedelta
+
+    def _gen(end: datetime, n: int) -> list:
+        return [
+            {
+                "timestamp": (end - timedelta(days=i)).strftime("%Y-%m-%dT00:00:00.000+09:00"),
+                "openPrice": "100", "highPrice": "101", "lowPrice": "99",
+                "closePrice": "100", "volume": "1000",
+            }
+            for i in range(n)  # newest-first
+        ]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        before = request.url.params.get("before")
+        if before is None:
+            rows = _gen(datetime(2026, 6, 15), 200)
+        else:
+            bd = datetime.fromisoformat(before)
+            rows = _gen(bd - timedelta(days=1), 200)
+        return httpx.Response(200, json={"result": {"candles": rows}})
+
+    client, _ = _client_with(settings, handler, tmp_path)
+    candles = client.get_candles("005930", count=300)
+    assert len(candles) == 300
+    assert candles[0].ts < candles[-1].ts  # chronological
+    assert candles[-1].ts.strftime("%Y-%m-%d") == "2026-06-15"  # newest retained
+
+
 def test_401_triggers_refresh(settings, tmp_path):
     state = {"served_401": False}
 
