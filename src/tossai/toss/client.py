@@ -73,14 +73,23 @@ class TossClient:
         resp.raise_for_status()
         return resp.json()
 
-    # ---- public, read-only endpoints (TODO(schema): confirm paths) ----
+    # ---- public, read-only endpoints (Toss Open API v1) ----
     def get_quote(self, symbol: str) -> QuoteResponse:
-        data = self._get("/quotes", params={"symbol": symbol})
-        return QuoteResponse.model_validate(_unwrap(data, "quote", default={"symbol": symbol}))
+        # GET /api/v1/prices?symbols=005930  (현재가)
+        data = self._get("/api/v1/prices", params={"symbols": symbol})
+        obj = _first_obj(_unwrap_list(data, keys=("prices", "items", "data")))
+        if obj is None:
+            obj = _unwrap(data, "price", default={"symbol": symbol})
+        obj.setdefault("symbol", symbol)
+        return QuoteResponse.model_validate(obj)
 
-    def get_candles(self, symbol: str, interval: str = "1d", count: int = 120) -> list[Candle]:
+    def get_candles(self, symbol: str, interval: str = "day", count: int = 120) -> list[Candle]:
+        # GET /api/v1/candles  (캔들 OHLCV; 1분봉/일봉)
+        # TODO(schema): confirm exact param names (timeframe/period) + response keys
+        # against a live response, then tighten CandleRaw.
         data = self._get(
-            "/candles", params={"symbol": symbol, "interval": interval, "count": count}
+            "/api/v1/candles",
+            params={"symbol": symbol, "symbols": symbol, "interval": interval, "count": count},
         )
         rows = _unwrap_list(data, keys=("candles", "items", "data"))
         candles: list[Candle] = []
@@ -92,8 +101,8 @@ class TossClient:
         return candles
 
     def get_balances(self) -> dict:
-        """Account balances (account-scoped). Returned as raw dict for now."""
-        return self._get("/accounts/balances", account_scoped=True)
+        """Holdings (account-scoped: Bearer + X-Tossinvest-Account)."""
+        return self._get("/api/v1/holdings", account_scoped=True)
 
 
 def _unwrap(data: dict, key: str, default: dict | None = None) -> dict:
@@ -113,3 +122,10 @@ def _unwrap_list(data: object, keys: tuple[str, ...]) -> list:
             if isinstance(data.get(k), list):
                 return data[k]
     return []
+
+
+def _first_obj(rows: list) -> dict | None:
+    for row in rows:
+        if isinstance(row, dict):
+            return row
+    return None

@@ -68,7 +68,7 @@ def test_401_triggers_refresh(settings, tmp_path):
         if not state["served_401"]:
             state["served_401"] = True
             return httpx.Response(401, json={"error": "expired"})
-        return httpx.Response(200, json={"quote": {"symbol": "AAPL", "price": 42.0}})
+        return httpx.Response(200, json={"prices": [{"symbol": "AAPL", "price": 42.0}]})
 
     client, _ = _client_with(settings, handler, tmp_path)
     quote = client.get_quote("AAPL")

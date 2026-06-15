@@ -27,12 +27,16 @@ class TokenResponse(BaseModel):
 
 
 class QuoteResponse(BaseModel):
-    """A latest-price snapshot. TODO(schema): confirm field names."""
+    """A latest-price snapshot from GET /api/v1/prices.
+
+    TODO(schema): confirm the exact price field name from a live response; until
+    then ``price`` is best-effort (kept optional so doctor doesn't hard-fail).
+    """
 
     model_config = ConfigDict(extra="allow")
 
     symbol: str
-    price: float
+    price: float | None = None
 
 
 class CandleRaw(BaseModel):

@@ -61,12 +61,18 @@ class TossAuth:
         if not self.s.toss_app_key or not self.s.toss_app_secret:
             raise RuntimeError("TOSS_APP_KEY / TOSS_APP_SECRET are not configured.")
         log.info("requesting new Toss OAuth token")
+        # OAuth 2.0 Client Credentials Grant — application/x-www-form-urlencoded
+        # with client_id/client_secret in the body (per Toss Open API docs).
         payload = {
             "grant_type": "client_credentials",
-            "appKey": self.s.toss_app_key,
-            "appSecret": self.s.toss_app_secret,
+            "client_id": self.s.toss_app_key,
+            "client_secret": self.s.toss_app_secret,
         }
-        resp = self._http.post(self.s.toss_oauth_url, json=payload)
+        resp = self._http.post(
+            self.s.toss_oauth_url,
+            data=payload,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
         resp.raise_for_status()
         token = TokenResponse.model_validate(resp.json())
         self._token = token.access_token

@@ -35,8 +35,8 @@ class Settings(BaseSettings):
     toss_app_key: str = ""
     toss_app_secret: str = ""
     toss_account_seq: str = ""
-    toss_base_url: str = "https://openapi.tossinvest.com/v1"
-    toss_oauth_url: str = "https://openapi.tossinvest.com/v1/oauth/token"
+    toss_base_url: str = "https://openapi.tossinvest.com"
+    toss_oauth_url: str = "https://openapi.tossinvest.com/oauth2/token"
     toss_timeout_s: float = 10.0
     toss_max_retries: int = 3
 
