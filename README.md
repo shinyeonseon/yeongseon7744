@@ -15,9 +15,20 @@ AWS EC2에서 주기적으로 실행하도록 설계되었습니다.
         → 상위 N개만 Claude 분석(tool-use 구조화 출력) → JSON 리포트 + 콘솔/웹훅 알림
 ```
 
-- **스크리닝**(`screening/`): SMA/EMA, RSI(Wilder), MACD, 모멘텀, 거래량비율, ATR을
-  pandas로 직접 계산. 추세·과매수아님·거래량·모멘텀 게이트를 통과한 종목만 스코어링 후
-  상위 `CLAUDE_MAX_CANDIDATES`개만 Claude로 전달 → **비용 상한 결정적**.
+- **스크리닝 / 전략 앙상블**(`screening/`): 여러 퀀트 전략이 각자 후보를 내고, 심볼별로
+  병합(중복 제거·시그널 합산·`flagged_by` 누적)한 뒤 상위 `CLAUDE_MAX_CANDIDATES`개만 Claude로
+  전달 → **비용 상한 결정적**. 모든 전략은 토스 캔들(+VIX)만으로 계산 (외부 펀더멘털 의존성 없음).
+
+  | 전략 | 버킷 | 요약 |
+  |------|------|------|
+  | `technical_swing` | swing | 추세·RSI·거래량·모멘텀 게이트(기존 룰 퍼널) |
+  | `dual_momentum` | long | Antonacci 절대+상대 모멘텀(12개월 수익률) |
+  | `canslim` | swing | CAN SLIM **기술적 서브셋**(52주 신고가 근접·RS·거래량·MA·VIX 게이트). 펀더멘털 미포함 |
+  | `mean_reversion` | swing | 상승추세 내 과매도 눌림목 |
+  | `trend_breakout` | long | 52주 신고가 돌파 + 거래량 확인 |
+
+  **시장국면(regime) 필터**: VIX로 RISK_ON/NEUTRAL/RISK_OFF 분류 → RISK_OFF에선 long 버킷 가중치 하향.
+  `STRATEGY`(콤마 리스트)로 선택, `--strategy`로 1회 오버라이드.
 - **분석**(`analysis/`): `submit_recommendation` 단일 tool을 `tool_choice`로 강제해
   항상 파싱 가능한 `{action, confidence, target_price, rationale, risks, time_horizon}` 산출.
 - **안전**(`toss/orders.py`): 주문 모듈은 항상 예외를 던지는 비활성 스텁. 파이프라인에
@@ -143,7 +154,7 @@ cd /opt/tossai && ./.venv/bin/python -m tossai doctor   # 스모크 테스트
 ## 테스트
 
 ```bash
-./.venv/bin/python -m pytest      # 90 tests, 모든 외부 API 모킹
+./.venv/bin/python -m pytest      # 112 tests, 모든 외부 API 모킹
 ./.venv/bin/ruff check .
 ```
 
@@ -162,7 +173,8 @@ src/tossai/
   models.py         Candle/Candidate/Recommendation 등 도메인 모델
   market/           장 시간·휴장(calendar), 워치리스트(universe)
   toss/             auth(OAuth)·client(시세/캔들)·schemas·orders(비활성 스텁)
-  screening/        indicators(순수 지표)·screener(룰 퍼널)
+  screening/        indicators(순수 지표)·screener(룰 퍼널)·regime(VIX 국면)
+    strategies/     base·technical_swing·dual_momentum·canslim·mean_reversion·trend_breakout·ensemble
   analysis/         claude_engine(tool-use)·prompts
   pipeline/         orchestrator(전체 흐름)
   output/           report(JSON/콘솔)·alerts(console/webhook/smtp/slack)

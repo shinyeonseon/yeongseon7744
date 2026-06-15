@@ -65,9 +65,13 @@ def doctor() -> None:
 
 
 @app.command("screen-only")
-def screen_only() -> None:
+def screen_only(
+    strategy: str = typer.Option(None, "--strategy", help="Override STRATEGY (comma list)."),
+) -> None:
     """Run screening only (no Claude, no cost)."""
     settings = _boot()
+    if strategy:
+        settings.strategy = strategy
     from tossai.pipeline.orchestrator import Orchestrator
     from tossai.toss.client import TossClient
 
@@ -79,16 +83,23 @@ def screen_only() -> None:
         return
     typer.echo(f"{len(candidates)} candidate(s):")
     for c in candidates:
-        typer.echo(f"  {c.symbol:<8} [{c.market}] score={c.score:.3f} price={c.price}")
+        flagged = ",".join(c.flagged_by) or (c.strategy or "-")
+        typer.echo(
+            f"  {c.symbol:<8} [{c.market}] score={c.score:.3f} "
+            f"bucket={c.bucket or '-'} by={flagged} price={c.price}"
+        )
 
 
 @app.command("run-once")
 def run_once(
     force: bool = typer.Option(False, "--force", help="Send alerts even if market is closed."),
     deep: bool = typer.Option(False, "--deep", help="Use the deeper Claude model."),
+    strategy: str = typer.Option(None, "--strategy", help="Override STRATEGY (comma list)."),
 ) -> None:
     """Run one full analysis pass and exit."""
     settings = _boot()
+    if strategy:
+        settings.strategy = strategy
     from tossai.analysis.claude_engine import ClaudeEngine
     from tossai.pipeline.orchestrator import Orchestrator
     from tossai.toss.client import TossClient

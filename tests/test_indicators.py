@@ -86,3 +86,25 @@ def test_golden_cross_not_when_already_above():
     fast = pd.Series([5.0, 6.0])
     slow = pd.Series([1.0, 1.0])
     assert ind.golden_cross(fast, slow) is False
+
+
+def test_rolling_high_low():
+    s = pd.Series([1, 3, 2, 5, 4], dtype=float)
+    assert ind.rolling_high(s, 3).iloc[-1] == 5.0
+    assert ind.rolling_low(s, 3).iloc[-1] == 2.0
+    assert np.isnan(ind.rolling_high(s, 3).iloc[1])  # warm-up
+
+
+def test_total_return():
+    s = pd.Series([100.0, 110.0, 121.0])
+    assert ind.total_return(s, 2) == pytest.approx(0.21)
+    assert ind.total_return(s, 1, skip=1) == pytest.approx(0.10)
+    assert ind.total_return(s, 5) is None  # not enough history
+
+
+def test_range_position():
+    s = pd.Series([10, 12, 14, 16, 20], dtype=float)
+    # last=20 is the 5-bar high → position 1.0
+    assert ind.range_position(s, 5).iloc[-1] == pytest.approx(1.0)
+    flat = pd.Series([5.0] * 5)
+    assert np.isnan(ind.range_position(flat, 5).iloc[-1])  # degenerate range

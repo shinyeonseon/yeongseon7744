@@ -41,6 +41,7 @@ class Screener:
 
     def __init__(self, settings: Settings):
         self.s = settings
+        self.required_history = max(settings.sma_slow, settings.rsi_period) + 2
 
     def run(self, symbol: str, candles: list[Candle], market: str = "KRX") -> ScreenResult:
         s = self.s

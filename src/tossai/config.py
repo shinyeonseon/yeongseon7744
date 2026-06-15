@@ -56,6 +56,35 @@ class Settings(BaseSettings):
     volume_ratio_min: float = 1.2
     screen_min_score: float = 0.0
 
+    # ---- Strategies (ensemble) ----
+    strategy: str = "technical_swing,dual_momentum,canslim,mean_reversion,trend_breakout"
+    candle_count: int = 0  # 0 = auto: max(required_history, 260)
+    # Dual momentum
+    dm_lookback_days: int = 252
+    dm_skip_days: int = 0
+    dm_abs_threshold: float = 0.0
+    dm_require_trend: bool = True
+    dm_score_cap: float = 0.5
+    # CAN SLIM (technical subset)
+    canslim_high_proximity_pct: float = 0.15
+    canslim_rs_lookback: int = 252
+    canslim_rs_min: float = 0.70
+    canslim_vol_ratio_min: float = 1.5
+    canslim_max_vix: float = 25.0
+    # Mean reversion
+    mean_rev_ma: int = 200
+    mean_rev_rsi_low: float = 35.0
+    mean_rev_support_lookback: int = 20
+    mean_rev_support_pos: float = 0.25
+    # Trend breakout
+    breakout_lookback: int = 252
+    breakout_vol_window: int = 20
+    breakout_vol_ratio_min: float = 1.5
+    # Market regime (VIX based)
+    regime_neutral_vix: float = 20.0
+    regime_riskoff_vix: float = 28.0
+    regime_riskoff_weight: float = 0.5
+
     # ---- Runtime ----
     market: Market = Market.BOTH
     loop_interval_min: int = 30
@@ -107,6 +136,13 @@ class Settings(BaseSettings):
     def channels(self) -> list[str]:
         return [c.strip().lower() for c in self.alert_channels.split(",") if c.strip()]
 
+    def strategies(self) -> list[str]:
+        return [s.strip().lower() for s in self.strategy.split(",") if s.strip()]
+
+    def resolved_candle_count(self, required_history: int) -> int:
+        """How many candles to fetch: enough for the heaviest active strategy."""
+        return max(self.candle_count, required_history, 260)
+
     def enforce_safety(self) -> None:
         """Hard guard: v1 must never trade. Call once at startup."""
         if self.enable_trading:
@@ -125,6 +161,8 @@ class Settings(BaseSettings):
             "toss_base_url": self.toss_base_url,
             "claude_model": self.claude_model,
             "market": self.market.value,
+            "strategies": self.strategies(),
+            "candle_count": self.candle_count,
             "enable_trading": self.enable_trading,
             "alert_channels": self.channels(),
             "webhook_url_set": bool(self.webhook_url),

@@ -21,6 +21,11 @@ SYSTEM_PROMPT = (
     "- Set confidence honestly: low when signals conflict or history is thin.\n"
     "- A target_price should be consistent with the latest price and ATR; use "
     "null if you cannot justify one.\n"
+    "- A candidate may be flagged by multiple strategies (see 'flagged_by'); "
+    "treat agreement across strategies as corroborating, but still reason from "
+    "the numeric signals and do not assume more history than provided. Buckets: "
+    "'swing' = shorter-term technical setup, 'long' = longer-horizon "
+    "momentum/trend.\n"
     "- You MUST respond by calling the submit_recommendation tool exactly once."
 )
 
@@ -74,6 +79,9 @@ def build_user_message(candidate: Candidate) -> str:
         "name": candidate.name,
         "latest_price": candidate.price,
         "screen_score": candidate.score,
+        "strategy": candidate.strategy,
+        "bucket": candidate.bucket,
+        "flagged_by": candidate.flagged_by,
         "atr": candidate.atr,
         "technical_signals": candidate.signals,
     }

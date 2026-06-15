@@ -30,6 +30,11 @@ def make_candles(
     return candles
 
 
+def make_series(closes: list[float], volumes: list[float] | None = None) -> list[Candle]:
+    """Alias for make_candles, for readability in long-history strategy tests."""
+    return make_candles(closes, volumes)
+
+
 def make_uptrend(
     n: int = 40, up: float = 2.5, down: float = 3.0, vol_spike: float = 2.5
 ) -> list[Candle]:

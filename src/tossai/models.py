@@ -35,8 +35,12 @@ class Candidate(BaseModel):
     name: str | None = None
     price: float
     score: float
-    signals: dict[str, float | bool | None] = Field(default_factory=dict)
+    signals: dict[str, float | bool | str | None] = Field(default_factory=dict)
     atr: float | None = None
+    # Which strategy/bucket flagged this candidate (ensemble fills these in).
+    strategy: str | None = None
+    bucket: str | None = None
+    flagged_by: list[str] = Field(default_factory=list)
 
 
 class Recommendation(BaseModel):

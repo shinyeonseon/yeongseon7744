@@ -14,7 +14,7 @@ from tossai.market.universe import Symbol, load_universe
 from tossai.models import Candidate, Candle
 from tossai.output import alerts
 from tossai.output.report import Report, save_report
-from tossai.screening.screener import Screener
+from tossai.screening.strategies.ensemble import build_strategy
 from tossai.toss.client import TossClient
 
 log = get_logger(__name__)
@@ -26,19 +26,22 @@ class Orchestrator:
         settings: Settings,
         client: TossClient,
         engine: ClaudeEngine | None = None,
-        screener: Screener | None = None,
+        screener=None,
     ):
         self.s = settings
         self.client = client
         self.engine = engine
-        self.screener = screener or Screener(settings)
+        # ``screener`` may be any object exposing ``screen_universe`` +
+        # ``required_history`` (a single Screener/Strategy or a StrategyEnsemble).
+        self.screener = screener or build_strategy(settings)
 
     def _fetch_candles(self, symbols: list[Symbol]) -> tuple[dict[str, list[Candle]], dict[str, str]]:
         candle_map: dict[str, list[Candle]] = {}
         markets: dict[str, str] = {}
+        count = self.s.resolved_candle_count(getattr(self.screener, "required_history", 0))
         for sym in symbols:
             try:
-                candles = self.client.get_candles(sym.symbol)
+                candles = self.client.get_candles(sym.symbol, count=count)
             except Exception as exc:
                 log.warning("candle fetch failed for %s: %s", sym.symbol, exc)
                 continue

@@ -78,3 +78,44 @@ def golden_cross(fast_ma: pd.Series, slow_ma: pd.Series) -> bool:
     if any(pd.isna(x) for x in (f0, f1, s0, s1)):
         return False
     return bool(f0 <= s0 and f1 > s1)
+
+
+def rolling_high(series: pd.Series, n: int) -> pd.Series:
+    """Highest value over a trailing window of n (Donchian upper / 52w high)."""
+    return series.rolling(window=n, min_periods=n).max()
+
+
+def rolling_low(series: pd.Series, n: int) -> pd.Series:
+    """Lowest value over a trailing window of n (Donchian lower / support)."""
+    return series.rolling(window=n, min_periods=n).min()
+
+
+def total_return(series: pd.Series, n: int, skip: int = 0) -> float | None:
+    """Total return over n bars ending ``skip`` bars ago, as a fraction.
+
+    ``total_return(s, 252)`` is the trailing 12-month return; ``skip`` lets you
+    exclude the most recent bars (Antonacci-style skip-month). Returns None if
+    there isn't enough history or the base price is non-positive.
+    """
+    end = len(series) - 1 - skip
+    start = end - n
+    if start < 0 or end < 0:
+        return None
+    base = series.iloc[start]
+    last = series.iloc[end]
+    if pd.isna(base) or pd.isna(last) or base <= 0:
+        return None
+    return float(last / base - 1.0)
+
+
+def range_position(series: pd.Series, n: int) -> pd.Series:
+    """Where the latest price sits within its trailing n-bar range, in [0, 1].
+
+    1.0 == at the n-bar high, 0.0 == at the n-bar low. NaN when the range is
+    degenerate (flat) or during the warm-up window.
+    """
+    hi = rolling_high(series, n)
+    lo = rolling_low(series, n)
+    span = (hi - lo).replace(0.0, np.nan)
+    return (series - lo) / span
+
