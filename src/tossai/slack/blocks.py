@@ -8,6 +8,7 @@ are the most-tested pieces of the Slack layer.
 from __future__ import annotations
 
 from tossai.models import DISCLAIMER, Action, AnalyzedCandidate, Candidate
+from tossai.output.portfolio_report import PortfolioReport
 from tossai.output.report import Report
 from tossai.risk.models import RiskAlert
 
@@ -17,6 +18,9 @@ _ACTION_EMOJI = {
     Action.HOLD: "⚪",
     Action.ANALYSIS_FAILED: "⚠️",
 }
+
+# Portfolio advice actions (ADD/HOLD/TRIM/SELL) keyed by their string value.
+_PORTFOLIO_EMOJI = {"ADD": "🟢", "HOLD": "⚪", "TRIM": "🟠", "SELL": "🔴", "ANALYSIS_FAILED": "⚠️"}
 
 
 def _truncate(text: str, n: int = 280) -> str:
@@ -64,6 +68,37 @@ def report_blocks(report: Report, min_confidence: float = 0.0) -> list[dict]:
         blocks.append(_section("_No candidates passed screening._"))
     for item in report.results:
         blocks.append(_section(_recommendation_line(item)))
+    blocks.append({"type": "divider"})
+    blocks.append(_disclaimer_block())
+    return blocks
+
+
+def _portfolio_line(item) -> str:
+    p, a = item.position, item.advice
+    emoji = _PORTFOLIO_EMOJI.get(a.action.value, "•")
+    pl = f"  P&L *{p.pl_rate * 100:+.1f}%*" if p.pl_rate is not None else ""
+    rationale = " ".join((a.rationale or "").split())
+    return (
+        f"{emoji} *{p.symbol}* [{p.market}] *{a.action.value}* "
+        f"({a.confidence:.0%}){pl}\n_{_truncate(rationale, 220)}_"
+    )
+
+
+def portfolio_blocks(report: PortfolioReport, min_confidence: float = 0.0) -> list[dict]:
+    """Held-position advice (ADD/HOLD/TRIM/SELL) as Block Kit. Shows every
+    position; rationale newlines are flattened so each stays one section."""
+    blocks: list[dict] = [
+        _header("💼 보유 포트폴리오 조언"),
+        _section(
+            f"*{report.generated_at:%Y-%m-%d %H:%M UTC}*  ·  "
+            f"positions *{report.positions_count}*  ·  ~${report.estimated_cost_usd:.4f}"
+        ),
+    ]
+    shown = [r for r in report.results if r.advice.confidence >= min_confidence]
+    if not shown:
+        blocks.append(_section("_No positions to report (check TOSS_ACCOUNT_SEQ)._"))
+    for item in shown:
+        blocks.append(_section(_portfolio_line(item)))
     blocks.append({"type": "divider"})
     blocks.append(_disclaimer_block())
     return blocks

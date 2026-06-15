@@ -108,6 +108,54 @@ class SlackNotifier:
         self._client.post_message(self.channel, blocks, text=console_table(report))
 
 
+class PortfolioNotifier:
+    """Posts held-position advice (ADD/HOLD/TRIM/SELL) to Slack via bot token.
+
+    Mirrors ``SlackNotifier`` but for the portfolio report. Pushes every position
+    at/above the confidence gate; full detail always lives in the JSON report.
+    """
+
+    def __init__(self, bot_token: str, channel: str, min_confidence: float,
+                 client=None):
+        self.channel = channel
+        self.min_confidence = min_confidence
+        if client is None:
+            from tossai.slack.web_client import SlackClient
+
+            client = SlackClient(bot_token)
+        self._client = client
+
+    def send(self, report) -> None:
+        from tossai.output.portfolio_report import console_table as portfolio_console
+        from tossai.slack.blocks import portfolio_blocks
+
+        if not report.results:
+            log.info("slack: no portfolio positions to push")
+            return
+        blocks = portfolio_blocks(report, self.min_confidence)
+        self._client.post_message(self.channel, blocks, text=portfolio_console(report))
+
+
+def dispatch_portfolio(settings: Settings, report) -> None:
+    """Push the portfolio report to Slack when the slack channel is configured.
+
+    No-op (with a log line) when slack isn't an alert channel or creds are
+    missing — keeps the CLI safe to run without Slack set up.
+    """
+    if "slack" not in settings.channels():
+        return
+    if not (settings.slack_bot_token and settings.slack_channel):
+        log.warning("slack channel enabled but SLACK_BOT_TOKEN/SLACK_CHANNEL missing")
+        return
+    notifier = PortfolioNotifier(
+        settings.slack_bot_token, settings.slack_channel, settings.alert_min_confidence,
+    )
+    try:
+        notifier.send(report)
+    except Exception as exc:  # never break the CLI on a Slack hiccup
+        log.error("portfolio slack push failed: %s", exc)
+
+
 def build_notifiers(settings: Settings) -> list[Notifier]:
     notifiers: list[Notifier] = []
     channels = settings.channels()

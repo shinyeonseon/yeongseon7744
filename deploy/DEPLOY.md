@@ -77,6 +77,33 @@ ls -t /opt/tossai/reports | head    # JSON 리포트가 쌓이는지
 
 장중에 Slack 채널로 추천이 올라오면 자동화 성공입니다.
 
+## 5) 보유 포트폴리오 조언 Slack 자동화 (선택)
+
+워치리스트 추천과 별개로, **내가 실제 보유한 종목**에 ADD/HOLD/TRIM/SELL 조언을 Slack으로 받습니다.
+
+먼저 `/etc/tossai/.env`에 계좌 시퀀스를 넣습니다(2)의 Slack 설정도 되어 있어야 함):
+```ini
+TOSS_ACCOUNT_SEQ=1          # 계좌 시퀀스(보통 1). 모르면 GET /api/v1/accounts의 accountSeq
+```
+
+**수동/cron 1회성** — `portfolio` 명령이 콘솔 출력 + (slack 채널 설정 시) 자동 Slack 푸시:
+```bash
+./.venv/bin/python -m tossai portfolio            # 분석 + Slack 푸시
+./.venv/bin/python -m tossai portfolio --no-slack # 콘솔만
+```
+cron으로 하루 1회(장마감 후) 자동 발송 예:
+```cron
+40 15 * * 1-5  cd /opt/tossai && ./.venv/bin/python -m tossai portfolio >> logs/portfolio.cron.log 2>&1
+```
+(EC2 타임존이 KST가 아니면 시간을 환산하세요.)
+
+**`serve`(인터랙티브 서버)를 이미 띄웠다면** 스케줄러에 포트폴리오 잡을 넣어 무인 발송:
+```ini
+PORTFOLIO_SCHEDULE_ENABLED=true
+PORTFOLIO_SCHEDULE_TIME=15:40   # 시장 tz 기준 HH:MM (평일 장마감 후)
+```
+→ `sudo systemctl restart tossai-serve`. (Claude 비용이 들므로 기본 off, 옵트인입니다.)
+
 ---
 
 ## 비용 주의 (Claude)

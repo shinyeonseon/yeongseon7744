@@ -143,6 +143,80 @@ def test_position_signals_short_history():
     assert sig.get("note") == "insufficient price history"
 
 
+class _FakeSlackClient:
+    def __init__(self):
+        self.posts = []
+
+    def post_message(self, channel, blocks, text=""):
+        self.posts.append((channel, blocks, text))
+        return True
+
+
+def _advice_report():
+    from tossai.output.portfolio_report import PortfolioReport
+    return PortfolioReport(positions_count=2, results=[
+        AnalyzedPosition(
+            position=Position(symbol="MU", market="US", quantity=13, avg_price=382.84,
+                              last_price=1070.45, pl_rate=1.796),
+            advice=PositionAdvice(action=PortfolioAction.TRIM, confidence=0.7,
+                                  rationale="large gain\n- momentum cooling", risks=[]),
+        ),
+        AnalyzedPosition(
+            position=Position(symbol="ORCL", market="US", quantity=2, avg_price=246.6,
+                              last_price=194.25, pl_rate=-0.2123),
+            advice=PositionAdvice(action=PortfolioAction.HOLD, confidence=0.6,
+                                  rationale="steady", risks=[]),
+        ),
+    ])
+
+
+def test_portfolio_blocks_structure():
+    from tossai.slack.blocks import portfolio_blocks
+
+    blocks = portfolio_blocks(_advice_report())
+    headers = [b for b in blocks if b.get("type") == "header"]
+    assert len(headers) == 1
+    assert blocks[-1]["type"] == "context"  # disclaimer
+    flat = str(blocks)
+    assert "MU" in flat and "TRIM" in flat and "ORCL" in flat
+    # rationale newline must not survive raw inside a section
+    sections = [b["text"]["text"] for b in blocks if b.get("type") == "section"]
+    assert not any("\n- momentum" in s for s in sections)
+
+
+def test_portfolio_notifier_posts(settings):
+    from tossai.output.alerts import PortfolioNotifier
+
+    fake = _FakeSlackClient()
+    PortfolioNotifier("xoxb-x", "C123", 0.0, client=fake).send(_advice_report())
+    assert len(fake.posts) == 1 and fake.posts[0][0] == "C123"
+
+
+def test_portfolio_notifier_skips_empty(settings):
+    from tossai.output.alerts import PortfolioNotifier
+    from tossai.output.portfolio_report import PortfolioReport
+
+    fake = _FakeSlackClient()
+    PortfolioNotifier("xoxb-x", "C123", 0.0, client=fake).send(PortfolioReport())
+    assert fake.posts == []
+
+
+def test_dispatch_portfolio_noop_without_slack(settings):
+    from tossai.output.alerts import dispatch_portfolio
+
+    settings.alert_channels = "console"  # slack not enabled → no push, no error
+    dispatch_portfolio(settings, _advice_report())  # must not raise
+
+
+def test_dispatch_portfolio_warns_when_unconfigured(settings):
+    from tossai.output.alerts import dispatch_portfolio
+
+    settings.alert_channels = "console,slack"
+    settings.slack_bot_token = ""
+    settings.slack_channel = ""
+    dispatch_portfolio(settings, _advice_report())  # missing creds → no push, no error
+
+
 def test_engine_analyze_position(settings):
     block = SimpleNamespace(
         type="tool_use", name="submit_position_advice",

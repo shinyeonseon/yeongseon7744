@@ -86,6 +86,34 @@ def test_trend_filter_cuts_drawdown_on_trend_break():
     assert "exposure" in filtered.summary()
 
 
+def test_vol_target_cuts_drawdown_on_volatility_spike():
+    # Calm uptrend, then a high-volatility crash. A vol target should scale
+    # exposure down into the turbulence and cushion the drawdown.
+    calm = [100.0 + i * 0.3 for i in range(160)]
+    # alternating large up/down moves around a steep downtrend = high realized vol
+    crash = []
+    px = calm[-1]
+    for i in range(60):
+        px *= 0.94 if i % 2 == 0 else 1.02
+        crash.append(px)
+    series = make_series(calm + crash)
+    candle_map = {"UP": series}
+
+    targeted = walk_forward_backtest(
+        candle_map, _PickUp(), {"UP": "KRX"},
+        rebalance_days=21, top_n=1, vol_target=0.15, vol_lookback=20,
+    )
+    full = walk_forward_backtest(
+        candle_map, _PickUp(), {"UP": "KRX"},
+        rebalance_days=21, top_n=1, vol_target=0.0,
+    )
+    # de-risking into the vol spike cushions the crash
+    assert targeted.metrics.max_drawdown > full.metrics.max_drawdown  # less negative
+    assert targeted.avg_exposure < 1.0
+    assert targeted.vol_target == 0.15
+    assert "voltgt" in targeted.summary()
+
+
 def test_walk_forward_insufficient_history():
     candle_map = {"X": make_series([100.0, 101.0, 102.0])}
     result = walk_forward_backtest(candle_map, _PickUp(), {"X": "KRX"})

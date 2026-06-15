@@ -111,6 +111,12 @@ class Settings(BaseSettings):
     # Move a held symbol's weight to cash while it trades below its trailing MA
     # (``trend_ma``) — cuts drawdown by de-risking trend breaks. On by default.
     backtest_trend_filter: bool = True
+    # Risk management (drawdown control). Default weighting is inverse-vol (shrinks
+    # the most explosive names); a volatility target scales total exposure down to
+    # cash when the portfolio's own realized vol exceeds backtest_vol_target.
+    backtest_weighting: str = "inverse_vol"  # equal | inverse_vol
+    backtest_vol_target: float = 0.15  # annualized; 0 disables vol targeting
+    backtest_vol_lookback: int = 20
 
     # ---- Investment-master strategies (fundamental) ----
     # Need a fundamentals source (pykrx for KRX, yfinance for US). Lazy-imported;
@@ -158,6 +164,10 @@ class Settings(BaseSettings):
     briefing_morning_time: str = "08:30"  # local market tz, HH:MM
     briefing_weekly_day: str = "mon"
     briefing_weekly_time: str = "08:00"
+    # Portfolio advice can be pushed to Slack on a schedule (serve). Opt-in because
+    # it calls Claude (costs money); run-once recommendations push regardless.
+    portfolio_schedule_enabled: bool = False
+    portfolio_schedule_time: str = "15:40"  # local market tz, HH:MM (after close)
 
     # ---- Risk ----
     risk_scan_interval_min: int = 15

@@ -73,6 +73,13 @@ def build_scheduler(settings: Settings, slack_client: SlackClient) -> AsyncIOSch
         _risk_job, "interval", minutes=max(1, settings.risk_scan_interval_min),
         args=[settings, slack_client, deduper], id="risk_scan",
     )
+
+    if settings.portfolio_schedule_enabled:
+        ph, pm = _parse_hhmm(settings.portfolio_schedule_time)
+        sched.add_job(
+            _portfolio_job, "cron", day_of_week="mon-fri", hour=ph, minute=pm, timezone=tz,
+            args=[settings, slack_client], id="portfolio_advice",
+        )
     return sched
 
 
@@ -87,6 +94,33 @@ async def _morning_job(settings: Settings, slack: SlackClient) -> None:
 async def _weekly_job(settings: Settings, slack: SlackClient) -> None:
     bs = await asyncio.to_thread(generate_weekly_briefing, settings)
     await asyncio.to_thread(slack.post_message, settings.slack_channel, bs, "Weekly briefing")
+
+
+async def _portfolio_job(settings: Settings, slack: SlackClient) -> None:
+    if not _is_trading_day(settings):
+        log.info("portfolio advice skipped (not a trading day)")
+        return
+    report = await asyncio.to_thread(_run_portfolio, settings)
+    if report is None or not report.results:
+        log.info("portfolio advice: nothing to push")
+        return
+    bs = blocks.portfolio_blocks(report, settings.alert_min_confidence)
+    await asyncio.to_thread(slack.post_message, settings.slack_channel, bs, "Portfolio advice")
+
+
+def _run_portfolio(settings: Settings):
+    """Blocking: analyze held positions, return the PortfolioReport (or None)."""
+    from tossai.analysis.claude_engine import ClaudeEngine
+    from tossai.portfolio.analyzer import PortfolioAnalyzer
+    from tossai.toss.client import TossClient
+
+    try:
+        with TossClient(settings) as client:
+            engine = ClaudeEngine(settings)
+            return PortfolioAnalyzer(settings, client, engine).run()
+    except Exception as exc:
+        log.warning("portfolio advice run failed: %s", exc)
+        return None
 
 
 async def _risk_job(settings: Settings, slack: SlackClient, deduper: AlertDeduper) -> None:

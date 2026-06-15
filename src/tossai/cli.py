@@ -114,10 +114,14 @@ def run_once(
 @app.command()
 def portfolio(
     deep: bool = typer.Option(False, "--deep", help="Use the deeper Claude model."),
+    slack: bool = typer.Option(
+        True, "--slack/--no-slack",
+        help="Push advice to Slack when ALERT_CHANNELS includes 'slack'."),
 ) -> None:
     """Advise ADD/HOLD/TRIM/SELL on your held Toss positions (no orders)."""
     settings = _boot()
     from tossai.analysis.claude_engine import ClaudeEngine
+    from tossai.output import alerts
     from tossai.output import portfolio_report as pr
     from tossai.portfolio.analyzer import PortfolioAnalyzer
     from tossai.toss.client import TossClient
@@ -130,14 +134,17 @@ def portfolio(
         report = PortfolioAnalyzer(settings, client, engine).run()
     typer.echo(pr.console_table(report))
     pr.save_report(report, settings.reports_dir)
+    if slack:
+        alerts.dispatch_portfolio(settings, report)
 
 
 @app.command()
 def backtest(
     years: float = typer.Option(3.0, "--years", help="Years of history to fetch."),
     rebalance: int = typer.Option(21, "--rebalance", help="Rebalance every N trading days."),
-    top: int = typer.Option(5, "--top", help="Hold the top-N candidates each rebalance."),
-    weighting: str = typer.Option("equal", "--weighting", help="equal | inverse_vol"),
+    top: int = typer.Option(8, "--top", help="Hold the top-N candidates each rebalance."),
+    weighting: str = typer.Option(
+        None, "--weighting", help="equal | inverse_vol. Default from config."),
     cost_bps: float = typer.Option(
         None, "--cost-bps", help="Trading cost per turnover unit (bps). Default from config."),
     trend_filter: bool = typer.Option(
@@ -145,6 +152,12 @@ def backtest(
         help="De-risk holdings below their trailing MA to cash. Default from config."),
     trend_ma: int = typer.Option(
         None, "--trend-ma", help="Trailing MA window for the trend filter. Default from config."),
+    vol_target: float = typer.Option(
+        None, "--vol-target",
+        help="Annualized volatility target (e.g. 0.15); scales exposure to cash. "
+             "0 disables. Default from config."),
+    vol_lookback: int = typer.Option(
+        None, "--vol-lookback", help="Lookback window for realized vol. Default from config."),
 ) -> None:
     """Walk-forward backtest of the strategy ensemble (no Claude, no orders)."""
     settings = _boot()
@@ -169,11 +182,14 @@ def backtest(
 
     result = walk_forward_backtest(
         candle_map, strategy, markets,
-        rebalance_days=rebalance, top_n=top, weighting=weighting,
+        rebalance_days=rebalance, top_n=top,
+        weighting=settings.backtest_weighting if weighting is None else weighting,
         risk_parity_lookback=settings.risk_parity_lookback,
         cost_bps=settings.backtest_cost_bps if cost_bps is None else cost_bps,
         trend_filter=settings.backtest_trend_filter if trend_filter is None else trend_filter,
         trend_ma=settings.trend_ma if trend_ma is None else trend_ma,
+        vol_target=settings.backtest_vol_target if vol_target is None else vol_target,
+        vol_lookback=settings.backtest_vol_lookback if vol_lookback is None else vol_lookback,
     )
     typer.echo(result.summary())
 
