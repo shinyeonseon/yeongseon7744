@@ -8,12 +8,27 @@ as EPS/BPS when both are present.
 
 from __future__ import annotations
 
+import contextlib
+import io
+import logging
 from datetime import datetime, timedelta
 
 from tossai.fundamentals.models import Fundamentals
 from tossai.logging_setup import get_logger
 
 log = get_logger(__name__)
+
+
+@contextlib.contextmanager
+def _quiet():
+    """Silence pykrx's noisy prints + its buggy internal logging during a call."""
+    buf = io.StringIO()
+    logging.disable(logging.CRITICAL)
+    try:
+        with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
+            yield
+    finally:
+        logging.disable(logging.NOTSET)
 
 
 class PykrxProvider:
@@ -29,9 +44,10 @@ class PykrxProvider:
         start = end - timedelta(days=10)
         fmt = "%Y%m%d"
         try:
-            df = stock.get_market_fundamental(
-                start.strftime(fmt), end.strftime(fmt), symbol, freq="d"
-            )
+            with _quiet():
+                df = stock.get_market_fundamental(
+                    start.strftime(fmt), end.strftime(fmt), symbol, freq="d"
+                )
         except Exception as exc:
             log.debug("pykrx fundamental fetch failed for %s: %s", symbol, exc)
             return None
