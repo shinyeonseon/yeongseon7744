@@ -105,6 +105,9 @@ class Settings(BaseSettings):
     lowvol_vol_cap: float = 0.03  # daily-return std where score → 0
     # Risk-parity / All-Weather inverse-vol weighting overlay (suggestion only).
     risk_parity_lookback: int = 63
+    # Backtest trading cost charged on rebalance turnover (basis points per unit
+    # traded; a blended commission + tax + slippage estimate).
+    backtest_cost_bps: float = 10.0
 
     # ---- Investment-master strategies (fundamental) ----
     # Need a fundamentals source (pykrx for KRX, yfinance for US). Lazy-imported;

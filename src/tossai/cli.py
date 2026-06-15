@@ -138,6 +138,8 @@ def backtest(
     rebalance: int = typer.Option(21, "--rebalance", help="Rebalance every N trading days."),
     top: int = typer.Option(5, "--top", help="Hold the top-N candidates each rebalance."),
     weighting: str = typer.Option("equal", "--weighting", help="equal | inverse_vol"),
+    cost_bps: float = typer.Option(
+        None, "--cost-bps", help="Trading cost per turnover unit (bps). Default from config."),
 ) -> None:
     """Walk-forward backtest of the strategy ensemble (no Claude, no orders)."""
     settings = _boot()
@@ -164,6 +166,7 @@ def backtest(
         candle_map, strategy, markets,
         rebalance_days=rebalance, top_n=top, weighting=weighting,
         risk_parity_lookback=settings.risk_parity_lookback,
+        cost_bps=settings.backtest_cost_bps if cost_bps is None else cost_bps,
     )
     typer.echo(result.summary())
 

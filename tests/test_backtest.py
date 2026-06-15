@@ -49,6 +49,20 @@ def test_walk_forward_beats_benchmark_on_uptrend():
     assert len(result.rebalances) >= 1
 
 
+def test_trading_costs_reduce_return():
+    up = make_series([100.0 * (1.01 ** i) for i in range(120)])
+    down = make_series([100.0 * (0.99 ** i) for i in range(120)])
+    candle_map = {"UP": up, "DOWN": down}
+
+    free = walk_forward_backtest(candle_map, _PickUp(), {"UP": "KRX", "DOWN": "KRX"},
+                                 rebalance_days=21, top_n=1, cost_bps=0.0)
+    costly = walk_forward_backtest(candle_map, _PickUp(), {"UP": "KRX", "DOWN": "KRX"},
+                                   rebalance_days=21, top_n=1, cost_bps=50.0)
+    # costs can only drag the strategy's realized return down
+    assert costly.metrics.total_return < free.metrics.total_return
+    assert costly.cost_bps == 50.0
+
+
 def test_walk_forward_insufficient_history():
     candle_map = {"X": make_series([100.0, 101.0, 102.0])}
     result = walk_forward_backtest(candle_map, _PickUp(), {"X": "KRX"})
