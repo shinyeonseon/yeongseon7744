@@ -1,0 +1,20 @@
+# Long-running unit: the Slack interactive server + briefing/risk scheduler.
+# Independent of tossai.timer (which runs the periodic `run-once` pass).
+[Unit]
+Description=Toss investment AI — Slack server + scheduler (analysis-only)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/tossai
+EnvironmentFile=/etc/tossai/.env
+ExecStart=/opt/tossai/.venv/bin/python -m tossai serve
+Restart=on-failure
+RestartSec=5
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

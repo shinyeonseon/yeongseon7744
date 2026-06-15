@@ -81,6 +81,33 @@ class SmtpNotifier:
             log.error("smtp send failed: %s", exc)
 
 
+class SlackNotifier:
+    """Posts recommendation signals to Slack via a bot token + Block Kit.
+
+    Only actionable BUY/SELL at/above the confidence threshold are pushed (same
+    gate as WebhookNotifier); the full detail always lives in the JSON report.
+    """
+
+    def __init__(self, bot_token: str, channel: str, min_confidence: float,
+                 client=None):
+        self.channel = channel
+        self.min_confidence = min_confidence
+        if client is None:
+            from tossai.slack.web_client import SlackClient
+
+            client = SlackClient(bot_token)
+        self._client = client
+
+    def send(self, report: Report) -> None:
+        from tossai.slack.blocks import report_blocks
+
+        if not report.actionable(self.min_confidence):
+            log.info("slack: no actionable items to push")
+            return
+        blocks = report_blocks(report, self.min_confidence)
+        self._client.post_message(self.channel, blocks, text=console_table(report))
+
+
 def build_notifiers(settings: Settings) -> list[Notifier]:
     notifiers: list[Notifier] = []
     channels = settings.channels()
@@ -96,6 +123,16 @@ def build_notifiers(settings: Settings) -> list[Notifier]:
             notifiers.append(SmtpNotifier(settings))
         else:
             log.warning("smtp channel enabled but SMTP_HOST/SMTP_TO missing")
+    if "slack" in channels:
+        if settings.slack_bot_token and settings.slack_channel:
+            notifiers.append(
+                SlackNotifier(
+                    settings.slack_bot_token, settings.slack_channel,
+                    settings.alert_min_confidence,
+                )
+            )
+        else:
+            log.warning("slack channel enabled but SLACK_BOT_TOKEN/SLACK_CHANNEL missing")
     return notifiers
 
 

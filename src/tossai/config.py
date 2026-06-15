@@ -78,7 +78,28 @@ class Settings(BaseSettings):
     smtp_from: str = ""
     smtp_to: str = ""
 
-    @field_validator("market", mode="before")
+    # ---- Slack ----
+    slack_enabled: bool = False
+    slack_bot_token: str = ""
+    slack_signing_secret: str = ""
+    slack_channel: str = ""
+    slack_app_host: str = "127.0.0.1"
+    slack_app_port: int = 8080
+    slack_max_concurrent_runs: int = 2
+
+    # ---- Scheduler / briefings ----
+    briefing_market: Market = Market.KRX
+    briefing_morning_time: str = "08:30"  # local market tz, HH:MM
+    briefing_weekly_day: str = "mon"
+    briefing_weekly_time: str = "08:00"
+
+    # ---- Risk ----
+    risk_scan_interval_min: int = 15
+    vix_blackswan_threshold: float = 30.0
+    gap_down_pct: float = 5.0
+    vix_source_url: str = "https://stooq.com/q/l/?s=^vix&f=sd2t2ohlcv&e=csv"
+
+    @field_validator("market", "briefing_market", mode="before")
     @classmethod
     def _upper_market(cls, v: object) -> object:
         return v.upper() if isinstance(v, str) else v
@@ -107,6 +128,10 @@ class Settings(BaseSettings):
             "enable_trading": self.enable_trading,
             "alert_channels": self.channels(),
             "webhook_url_set": bool(self.webhook_url),
+            "slack_enabled": self.slack_enabled,
+            "slack_bot_token_set": bool(self.slack_bot_token),
+            "slack_signing_secret_set": bool(self.slack_signing_secret),
+            "slack_channel_set": bool(self.slack_channel),
         }
 
 

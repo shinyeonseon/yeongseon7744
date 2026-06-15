@@ -127,5 +127,39 @@ def run_loop(
         time.sleep(interval_s)
 
 
+@app.command()
+def serve() -> None:
+    """Run the Slack interactive server + briefing/risk scheduler (long-lived)."""
+    settings = _boot()  # enforce_safety() + logging, same as every command
+    import uvicorn
+
+    from tossai.scheduler.jobs import build_scheduler
+    from tossai.slack.server import create_app
+    from tossai.slack.web_client import SlackClient
+
+    if not settings.slack_signing_secret or not settings.slack_bot_token:
+        log.warning(
+            "SLACK_SIGNING_SECRET / SLACK_BOT_TOKEN not set — slash commands and "
+            "proactive posts will fail until configured."
+        )
+
+    slack_client = SlackClient(settings.slack_bot_token)
+    fastapi_app = create_app(settings, slack_client=slack_client)
+    scheduler = build_scheduler(settings, slack_client)
+
+    @fastapi_app.on_event("startup")
+    async def _start_scheduler() -> None:
+        scheduler.start()
+        log.info("scheduler started with %d jobs", len(scheduler.get_jobs()))
+
+    @fastapi_app.on_event("shutdown")
+    async def _stop_scheduler() -> None:
+        scheduler.shutdown(wait=False)
+
+    log.info("serving Slack app on %s:%d", settings.slack_app_host, settings.slack_app_port)
+    uvicorn.run(fastapi_app, host=settings.slack_app_host, port=settings.slack_app_port,
+                log_level=settings.log_level.lower())
+
+
 if __name__ == "__main__":
     app()
