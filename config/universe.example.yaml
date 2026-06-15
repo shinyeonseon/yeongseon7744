@@ -1,17 +1,57 @@
 # Watchlist of symbols to screen. Copy to config/universe.yaml and edit.
 # Entries may be a bare symbol string or a {symbol, name} mapping.
 # Only symbols for the active MARKET setting (KRX / US / BOTH) are loaded.
+#
+# A broader universe gives the screening/strategies real selection power
+# (a tiny all-winners list makes every strategy flag everything). ~45 names
+# across sectors below. Note: more symbols = more candle calls per run
+# (each pages ~2 calls); the chart rate limit (5/s) is handled with backoff.
 
 KRX:
   - { symbol: "005930", name: "Samsung Electronics" }
   - { symbol: "000660", name: "SK hynix" }
+  - { symbol: "005380", name: "Hyundai Motor" }
+  - { symbol: "000270", name: "Kia" }
+  - { symbol: "005490", name: "POSCO Holdings" }
   - { symbol: "035420", name: "NAVER" }
   - { symbol: "035720", name: "Kakao" }
-  - { symbol: "005380", name: "Hyundai Motor" }
+  - { symbol: "051910", name: "LG Chem" }
+  - { symbol: "006400", name: "Samsung SDI" }
+  - { symbol: "207940", name: "Samsung Biologics" }
+  - { symbol: "068270", name: "Celltrion" }
+  - { symbol: "105560", name: "KB Financial" }
+  - { symbol: "055550", name: "Shinhan Financial" }
+  - { symbol: "086790", name: "Hana Financial" }
+  - { symbol: "012330", name: "Hyundai Mobis" }
+  - { symbol: "028260", name: "Samsung C&T" }
+  - { symbol: "015760", name: "KEPCO" }
+  - { symbol: "017670", name: "SK Telecom" }
+  - { symbol: "003550", name: "LG Corp" }
+  - { symbol: "066570", name: "LG Electronics" }
+  - { symbol: "010130", name: "Korea Zinc" }
+  - { symbol: "009150", name: "Samsung Electro-Mechanics" }
+  - { symbol: "032830", name: "Samsung Life" }
+  - { symbol: "316140", name: "Woori Financial" }
+  - { symbol: "000810", name: "Samsung F&M Insurance" }
 
 US:
   - { symbol: "AAPL", name: "Apple" }
   - { symbol: "MSFT", name: "Microsoft" }
   - { symbol: "NVDA", name: "NVIDIA" }
   - { symbol: "GOOGL", name: "Alphabet" }
+  - { symbol: "AMZN", name: "Amazon" }
+  - { symbol: "META", name: "Meta Platforms" }
   - { symbol: "TSLA", name: "Tesla" }
+  - { symbol: "AVGO", name: "Broadcom" }
+  - { symbol: "JPM", name: "JPMorgan Chase" }
+  - { symbol: "V", name: "Visa" }
+  - { symbol: "UNH", name: "UnitedHealth" }
+  - { symbol: "XOM", name: "Exxon Mobil" }
+  - { symbol: "JNJ", name: "Johnson & Johnson" }
+  - { symbol: "WMT", name: "Walmart" }
+  - { symbol: "PG", name: "Procter & Gamble" }
+  - { symbol: "MA", name: "Mastercard" }
+  - { symbol: "HD", name: "Home Depot" }
+  - { symbol: "COST", name: "Costco" }
+  - { symbol: "ORCL", name: "Oracle" }
+  - { symbol: "NFLX", name: "Netflix" }
