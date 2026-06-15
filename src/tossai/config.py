@@ -108,6 +108,9 @@ class Settings(BaseSettings):
     # Backtest trading cost charged on rebalance turnover (basis points per unit
     # traded; a blended commission + tax + slippage estimate).
     backtest_cost_bps: float = 10.0
+    # Move a held symbol's weight to cash while it trades below its trailing MA
+    # (``trend_ma``) — cuts drawdown by de-risking trend breaks. On by default.
+    backtest_trend_filter: bool = True
 
     # ---- Investment-master strategies (fundamental) ----
     # Need a fundamentals source (pykrx for KRX, yfinance for US). Lazy-imported;

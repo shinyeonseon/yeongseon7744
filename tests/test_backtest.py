@@ -63,6 +63,29 @@ def test_trading_costs_reduce_return():
     assert costly.cost_bps == 50.0
 
 
+def test_trend_filter_cuts_drawdown_on_trend_break():
+    # Long steady rise (well above MA200), then a trend break + crash.
+    rise = [100.0 + i * 0.8 for i in range(230)]          # 100 → ~283, MA200 trails below
+    crash = [rise[-1] * (0.97 ** (i + 1)) for i in range(50)]  # sharp decline below trend
+    series = make_series(rise + crash)
+    candle_map = {"UP": series}
+
+    filtered = walk_forward_backtest(
+        candle_map, _PickUp(), {"UP": "KRX"},
+        rebalance_days=21, top_n=1, trend_filter=True, trend_ma=200,
+    )
+    held = walk_forward_backtest(
+        candle_map, _PickUp(), {"UP": "KRX"},
+        rebalance_days=21, top_n=1, trend_filter=False,
+    )
+    # Moving to cash on the trend break should cushion the crash:
+    assert filtered.metrics.max_drawdown > held.metrics.max_drawdown  # less negative
+    assert filtered.metrics.total_return > held.metrics.total_return
+    # Some bars were de-risked to cash, so average exposure is below full.
+    assert filtered.avg_exposure < 1.0
+    assert "exposure" in filtered.summary()
+
+
 def test_walk_forward_insufficient_history():
     candle_map = {"X": make_series([100.0, 101.0, 102.0])}
     result = walk_forward_backtest(candle_map, _PickUp(), {"X": "KRX"})

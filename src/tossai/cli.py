@@ -140,6 +140,11 @@ def backtest(
     weighting: str = typer.Option("equal", "--weighting", help="equal | inverse_vol"),
     cost_bps: float = typer.Option(
         None, "--cost-bps", help="Trading cost per turnover unit (bps). Default from config."),
+    trend_filter: bool = typer.Option(
+        None, "--trend-filter/--no-trend-filter",
+        help="De-risk holdings below their trailing MA to cash. Default from config."),
+    trend_ma: int = typer.Option(
+        None, "--trend-ma", help="Trailing MA window for the trend filter. Default from config."),
 ) -> None:
     """Walk-forward backtest of the strategy ensemble (no Claude, no orders)."""
     settings = _boot()
@@ -167,6 +172,8 @@ def backtest(
         rebalance_days=rebalance, top_n=top, weighting=weighting,
         risk_parity_lookback=settings.risk_parity_lookback,
         cost_bps=settings.backtest_cost_bps if cost_bps is None else cost_bps,
+        trend_filter=settings.backtest_trend_filter if trend_filter is None else trend_filter,
+        trend_ma=settings.trend_ma if trend_ma is None else trend_ma,
     )
     typer.echo(result.summary())
 

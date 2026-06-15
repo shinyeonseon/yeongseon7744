@@ -25,12 +25,19 @@ class BacktestResult:
     rebalances: list[tuple[int, list[str]]] = field(default_factory=list)
     symbols: int = 0
     cost_bps: float = 0.0
+    trend_filter: bool = False
+    trend_ma: int = 0
+    avg_exposure: float = 1.0
 
     def summary(self) -> str:
         m, b = self.metrics.as_dict(), self.benchmark_metrics.as_dict()
+        if self.trend_filter:
+            tf = f"trend-filter MA{self.trend_ma}, exposure {self.avg_exposure:.0%}"
+        else:
+            tf = "trend-filter off, exposure 100%"
         return (
             f"Backtest: {self.symbols} symbols, {self.metrics.periods} days, "
-            f"{len(self.rebalances)} rebalances, cost {self.cost_bps:.0f}bps/turnover\n"
+            f"{len(self.rebalances)} rebalances, cost {self.cost_bps:.0f}bps/turnover, {tf}\n"
             f"  strategy : CAGR {m['cagr']:.1%}  Sharpe {m['sharpe']}  "
             f"MaxDD {m['max_drawdown']:.1%}  win {m['win_rate']:.1%}\n"
             f"  buy&hold : CAGR {b['cagr']:.1%}  Sharpe {b['sharpe']}  "
@@ -48,6 +55,18 @@ def _aligned_closes(candle_map: dict[str, list[Candle]]) -> tuple[dict[str, list
     return closes, length
 
 
+def _ma_series(series: list[float], window: int) -> list[float | None]:
+    """Trailing simple moving average; None until ``window`` bars are available."""
+    out: list[float | None] = []
+    running = 0.0
+    for i, v in enumerate(series):
+        running += v
+        if i >= window:
+            running -= series[i - window]
+        out.append(running / window if i >= window - 1 else None)
+    return out
+
+
 def walk_forward_backtest(
     candle_map: dict[str, list[Candle]],
     strategy,
@@ -58,16 +77,22 @@ def walk_forward_backtest(
     weighting: str = "equal",
     risk_parity_lookback: int = 63,
     cost_bps: float = 0.0,
+    trend_filter: bool = False,
+    trend_ma: int = 200,
 ) -> BacktestResult:
     markets = markets or {}
     closes, length = _aligned_closes(candle_map)
     aligned = {sym: candles[-length:] for sym, candles in candle_map.items() if candles}
     start = max(int(getattr(strategy, "required_history", 2)), 2)
     cost_rate = max(0.0, cost_bps) / 10_000.0  # per unit of turnover traded
+    # Per-symbol trailing MA, precomputed once. A held symbol only earns its return
+    # while close[k] > ma[k]; below trend its weight sits in cash (return 0).
+    ma_map = {s: _ma_series(c, trend_ma) for s, c in closes.items()} if trend_filter else None
 
     if length - 1 <= start:
         empty = compute_metrics([1.0])
-        return BacktestResult([1.0], empty, [1.0], empty, [], len(closes))
+        return BacktestResult([1.0], empty, [1.0], empty, [], len(closes),
+                              cost_bps, trend_filter, trend_ma, 1.0)
 
     equity = [1.0]
     bench = [1.0]
@@ -78,6 +103,7 @@ def walk_forward_backtest(
     bench_syms = list(closes.keys())
     pending_cost = 0.0           # strategy turnover cost, applied to the next bar
     bench_pending = cost_rate    # benchmark pays its one initial purchase cost
+    exposure_sum = 0.0           # invested fraction each bar (vs cash), for averaging
 
     step = 0
     for k in range(start, length - 1):
@@ -96,17 +122,21 @@ def walk_forward_backtest(
             prev_weights = weights
             rebalances.append((k, list(holdings)))
 
-        eq_ret = _portfolio_return(holdings, weights, closes, k)
+        eq_ret, invested = _portfolio_return(holdings, weights, closes, k, ma_map)
+        exposure_sum += invested
         equity.append(equity[-1] * (1.0 - pending_cost) * (1.0 + eq_ret))
         pending_cost = 0.0
         bench.append(bench[-1] * (1.0 - bench_pending) * (1.0 + _equal_return(bench_syms, closes, k)))
         bench_pending = 0.0
         step += 1
 
+    bars = max(len(equity) - 1, 1)
     return BacktestResult(
         equity=equity, metrics=compute_metrics(equity),
         benchmark_equity=bench, benchmark_metrics=compute_metrics(bench),
         rebalances=rebalances, symbols=len(closes), cost_bps=cost_bps,
+        trend_filter=trend_filter, trend_ma=trend_ma,
+        avg_exposure=exposure_sum / bars,
     )
 
 
@@ -123,13 +153,28 @@ def _weights(holdings, sliced, weighting, lookback) -> dict[str, float]:
     return {s: eq for s in holdings}
 
 
-def _portfolio_return(holdings, weights, closes, k) -> float:
+def _portfolio_return(holdings, weights, closes, k, ma_map=None) -> tuple[float, float]:
+    """Return (weighted portfolio return, invested fraction) for bar k → k+1.
+
+    With a trend filter (``ma_map`` provided), a holding contributes only while
+    its close is above its trailing MA; otherwise that weight sits in cash (0%
+    return) and is excluded from the invested fraction.
+    """
     r = 0.0
+    invested = 0.0
     for s in holdings:
         series = closes.get(s)
-        if series and k + 1 < len(series) and series[k] > 0:
-            r += weights.get(s, 0.0) * (series[k + 1] / series[k] - 1.0)
-    return r
+        if not (series and k + 1 < len(series) and series[k] > 0):
+            continue
+        if ma_map is not None:
+            ma = ma_map.get(s)
+            ma_k = ma[k] if ma and k < len(ma) else None
+            if ma_k is None or series[k] <= ma_k:
+                continue  # below trend → hold as cash
+        w = weights.get(s, 0.0)
+        r += w * (series[k + 1] / series[k] - 1.0)
+        invested += w
+    return r, invested
 
 
 def _equal_return(symbols, closes, k) -> float:
