@@ -25,7 +25,11 @@ SYSTEM_PROMPT = (
     "treat agreement across strategies as corroborating, but still reason from "
     "the numeric signals and do not assume more history than provided. Buckets: "
     "'swing' = shorter-term technical setup, 'long' = longer-horizon "
-    "momentum/trend.\n"
+    "momentum/trend, 'value' = fundamental value/quality (Graham, Magic Formula, "
+    "Buffett, Piotroski).\n"
+    "- Signal keys are namespaced by strategy (e.g. 'graham.per', "
+    "'buffett_quality.roe', 'magic_formula.earnings_yield'). Fundamental data may "
+    "be absent for some markets/symbols; if so, simply rely on what is present.\n"
     "- You MUST respond by calling the submit_recommendation tool exactly once."
 )
 

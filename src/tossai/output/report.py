@@ -21,6 +21,9 @@ class Report(BaseModel):
     screened_count: int
     results: list[AnalyzedCandidate] = Field(default_factory=list)
     estimated_cost_usd: float = 0.0
+    # Risk-parity / All-Weather suggested portfolio weights (inverse-vol). A
+    # suggestion only — never an order.
+    suggested_weights: dict[str, float] = Field(default_factory=dict)
     disclaimer: str = DISCLAIMER
 
     def actionable(self, min_confidence: float) -> list[AnalyzedCandidate]:
@@ -60,5 +63,11 @@ def console_table(report: Report) -> str:
             f"{rec.confidence:<6.2f}{target:<12}{rationale}"
         )
     lines.append("-" * 78)
+    if report.suggested_weights:
+        weights = ", ".join(
+            f"{sym} {w:.0%}"
+            for sym, w in sorted(report.suggested_weights.items(), key=lambda kv: -kv[1])
+        )
+        lines.append(f"Risk-parity suggested weights: {weights}")
     lines.append(DISCLAIMER)
     return "\n".join(lines)

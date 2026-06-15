@@ -17,17 +17,35 @@ AWS EC2에서 주기적으로 실행하도록 설계되었습니다.
 
 - **스크리닝 / 전략 앙상블**(`screening/`): 여러 퀀트 전략이 각자 후보를 내고, 심볼별로
   병합(중복 제거·시그널 합산·`flagged_by` 누적)한 뒤 상위 `CLAUDE_MAX_CANDIDATES`개만 Claude로
-  전달 → **비용 상한 결정적**. 모든 전략은 토스 캔들(+VIX)만으로 계산 (외부 펀더멘털 의존성 없음).
+  전달 → **비용 상한 결정적**. 투자 대가 전략들의 방법론을 참고해 재구현(코드 복사 X).
+
+  **가격기반 전략**(토스 캔들+VIX만, 안정적):
 
   | 전략 | 버킷 | 요약 |
   |------|------|------|
   | `technical_swing` | swing | 추세·RSI·거래량·모멘텀 게이트(기존 룰 퍼널) |
   | `dual_momentum` | long | Antonacci 절대+상대 모멘텀(12개월 수익률) |
-  | `canslim` | swing | CAN SLIM **기술적 서브셋**(52주 신고가 근접·RS·거래량·MA·VIX 게이트). 펀더멘털 미포함 |
+  | `canslim` | swing | CAN SLIM **기술적 서브셋**(52주 신고가·RS·거래량·MA·VIX 게이트) |
   | `mean_reversion` | swing | 상승추세 내 과매도 눌림목 |
   | `trend_breakout` | long | 52주 신고가 돌파 + 거래량 확인 |
+  | `meb_faber` | long | 메브 파버 GTAA(10개월/200일 SMA 추세 타이밍) |
+  | `momentum_quality` | long | 12-1 모멘텀 + FIP 추세 매끄러움(Wesley Gray) |
+  | `low_volatility` | long | 저변동성 이상현상(상승추세 한정) |
+
+  **펀더멘털 전략**(투자 대가 가치/품질 — 재무데이터 필요, 없으면 자동 skip):
+
+  | 전략 | 버킷 | 요약 |
+  |------|------|------|
+  | `graham` | value | 벤저민 그레이엄 방어적 가치(저PER·저PBR·그레이엄수) |
+  | `magic_formula` | value | 그린블랫 마법공식(이익수익률+ROC **교차 랭킹**) |
+  | `buffett_quality` | value | 버핏 품질가치(고ROE+적정PER) |
+  | `piotroski` | value | 피오트로스키 F-Score **부분(lite)** — 무료소스 한계 |
+
+  펀더멘털 소스: **KRX=pykrx, US=yfinance** (lazy-import, `pip install -e ".[fundamentals]"`).
+  미설치/네트워크 실패 시 해당 전략만 조용히 skip하고 가격기반 전략으로 계속 동작.
 
   **시장국면(regime) 필터**: VIX로 RISK_ON/NEUTRAL/RISK_OFF 분류 → RISK_OFF에선 long 버킷 가중치 하향.
+  **리스크패리티 오버레이**(달리오 올웨더): 선별된 종목에 역변동성 **제안 비중**을 리포트에 첨부(주문 아님).
   `STRATEGY`(콤마 리스트)로 선택, `--strategy`로 1회 오버라이드.
 - **분석**(`analysis/`): `submit_recommendation` 단일 tool을 `tool_choice`로 강제해
   항상 파싱 가능한 `{action, confidence, target_price, rationale, risks, time_horizon}` 산출.
@@ -154,7 +172,7 @@ cd /opt/tossai && ./.venv/bin/python -m tossai doctor   # 스모크 테스트
 ## 테스트
 
 ```bash
-./.venv/bin/python -m pytest      # 112 tests, 모든 외부 API 모킹
+./.venv/bin/python -m pytest      # 131 tests, 모든 외부 API 모킹
 ./.venv/bin/ruff check .
 ```
 
@@ -173,8 +191,11 @@ src/tossai/
   models.py         Candle/Candidate/Recommendation 등 도메인 모델
   market/           장 시간·휴장(calendar), 워치리스트(universe)
   toss/             auth(OAuth)·client(시세/캔들)·schemas·orders(비활성 스텁)
-  screening/        indicators(순수 지표)·screener(룰 퍼널)·regime(VIX 국면)
-    strategies/     base·technical_swing·dual_momentum·canslim·mean_reversion·trend_breakout·ensemble
+  screening/        indicators·screener·regime(VIX 국면)·allocation(리스크패리티)
+    strategies/     base·ensemble + 가격기반(technical_swing·dual_momentum·canslim·
+                    mean_reversion·trend_breakout·meb_faber·momentum_quality·low_volatility)
+                    + 펀더멘털(graham·magic_formula·buffett_quality·piotroski)
+  fundamentals/     models·provider(market 라우팅+캐시)·pykrx·yfinance·toss(future hook)
   analysis/         claude_engine(tool-use)·prompts
   pipeline/         orchestrator(전체 흐름)
   output/           report(JSON/콘솔)·alerts(console/webhook/smtp/slack)

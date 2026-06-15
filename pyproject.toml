@@ -34,6 +34,13 @@ dev = [
     "freezegun>=1.5,<2",
     "ruff>=0.5,<1",
 ]
+# Fundamental-data sources for the value/quality master strategies. Heavy and a
+# bit brittle, so kept optional; lazy-imported and skipped gracefully if absent.
+# KRX fundamentals via pykrx, US via yfinance. Install with: pip install -e ".[fundamentals]"
+fundamentals = [
+    "pykrx>=1.0,<2",
+    "yfinance>=0.2,<1",
+]
 
 [project.scripts]
 tossai = "tossai.cli:app"

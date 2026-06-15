@@ -66,6 +66,13 @@ class Orchestrator:
         engine = self.engine or ClaudeEngine(self.s)
         analyzed = engine.analyze_all(candidates) if candidates else []
 
+        # Risk-parity / All-Weather suggestion: inverse-vol weights over the
+        # screened set (analysis only — never an order).
+        from tossai.screening.allocation import inverse_vol_weights
+
+        cand_candles = {c.symbol: candle_map[c.symbol] for c in candidates if c.symbol in candle_map}
+        suggested_weights = inverse_vol_weights(cand_candles, self.s.risk_parity_lookback)
+
         report = Report(
             market=self.s.market.value,
             market_open=market_open,
@@ -73,6 +80,7 @@ class Orchestrator:
             screened_count=len(candidates),
             results=analyzed,
             estimated_cost_usd=round(engine.estimated_cost_usd(), 6),
+            suggested_weights=suggested_weights,
         )
         save_report(report, self.s.reports_dir)
 

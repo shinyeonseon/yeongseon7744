@@ -57,7 +57,11 @@ class Settings(BaseSettings):
     screen_min_score: float = 0.0
 
     # ---- Strategies (ensemble) ----
-    strategy: str = "technical_swing,dual_momentum,canslim,mean_reversion,trend_breakout"
+    strategy: str = (
+        "technical_swing,dual_momentum,canslim,mean_reversion,trend_breakout,"
+        "meb_faber,momentum_quality,low_volatility,"
+        "graham,magic_formula,buffett_quality,piotroski"
+    )
     candle_count: int = 0  # 0 = auto: max(required_history, 260)
     # Dual momentum
     dm_lookback_days: int = 252
@@ -84,6 +88,29 @@ class Settings(BaseSettings):
     regime_neutral_vix: float = 20.0
     regime_riskoff_vix: float = 28.0
     regime_riskoff_weight: float = 0.5
+
+    # ---- Investment-master strategies (price-based) ----
+    # Meb Faber GTAA trend timing (10-month / ~200d SMA).
+    meb_faber_ma: int = 200
+    # Momentum quality (12-1 momentum + frog-in-the-pan smoothness).
+    momq_lookback: int = 252
+    momq_skip: int = 21
+    momq_score_cap: float = 0.5
+    # Low-volatility factor.
+    lowvol_lookback: int = 126
+    lowvol_vol_cap: float = 0.03  # daily-return std where score → 0
+    # Risk-parity / All-Weather inverse-vol weighting overlay (suggestion only).
+    risk_parity_lookback: int = 63
+
+    # ---- Investment-master strategies (fundamental) ----
+    # Need a fundamentals source (pykrx for KRX, yfinance for US). Lazy-imported;
+    # when unavailable a strategy skips gracefully (never crashes the run).
+    fundamentals_enabled: bool = True
+    graham_max_pe: float = 15.0
+    graham_max_pb: float = 1.5
+    buffett_min_roe: float = 0.15
+    buffett_max_pe: float = 25.0
+    piotroski_min_score: int = 5
 
     # ---- Runtime ----
     market: Market = Market.BOTH
