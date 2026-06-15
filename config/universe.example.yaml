@@ -1,0 +1,17 @@
+# Watchlist of symbols to screen. Copy to config/universe.yaml and edit.
+# Entries may be a bare symbol string or a {symbol, name} mapping.
+# Only symbols for the active MARKET setting (KRX / US / BOTH) are loaded.
+
+KRX:
+  - { symbol: "005930", name: "Samsung Electronics" }
+  - { symbol: "000660", name: "SK hynix" }
+  - { symbol: "035420", name: "NAVER" }
+  - { symbol: "035720", name: "Kakao" }
+  - { symbol: "005380", name: "Hyundai Motor" }
+
+US:
+  - { symbol: "AAPL", name: "Apple" }
+  - { symbol: "MSFT", name: "Microsoft" }
+  - { symbol: "NVDA", name: "NVIDIA" }
+  - { symbol: "GOOGL", name: "Alphabet" }
+  - { symbol: "TSLA", name: "Tesla" }

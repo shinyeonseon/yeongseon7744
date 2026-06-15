@@ -1,0 +1,5 @@
+# Lighter alternative to systemd. Install with: crontab deploy/crontab.example
+# Runs every 30 minutes; the app gates on market hours internally.
+# Adjust the path to your venv/app and ensure the .env is loaded.
+
+*/30 * * * * cd /opt/tossai && set -a && . /etc/tossai/.env && set +a && /opt/tossai/.venv/bin/python -m tossai run-once >> /opt/tossai/logs/cron.log 2>&1

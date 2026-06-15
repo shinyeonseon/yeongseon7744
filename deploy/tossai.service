@@ -1,0 +1,18 @@
+# Oneshot unit: runs a single analysis pass. Triggered by tossai.timer.
+# Crash isolation — no long-lived process to leak memory or hang.
+[Unit]
+Description=Toss investment AI (analysis-only) one-shot run
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/tossai
+EnvironmentFile=/etc/tossai/.env
+ExecStart=/opt/tossai/.venv/bin/python -m tossai run-once
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

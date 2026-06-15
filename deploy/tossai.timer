@@ -1,0 +1,12 @@
+# Fires the oneshot service every 30 minutes. The app itself gates on
+# market hours, so off-hours runs are cheap (no Claude calls, alerts suppressed).
+[Unit]
+Description=Schedule Toss investment AI analysis runs
+
+[Timer]
+OnCalendar=*:0/30
+Persistent=true
+Unit=tossai.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,26 @@
+# Secrets — never commit
+.env
+*.env
+!.env.example
+.token_cache.json
+
+# Runtime artifacts
+reports/
+logs/
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+build/
+dist/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
