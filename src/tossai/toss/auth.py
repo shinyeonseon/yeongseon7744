@@ -27,6 +27,28 @@ log = get_logger(__name__)
 _EXPIRY_SKEW_S = 60
 
 
+class TossAuthError(RuntimeError):
+    """Token request failed; message carries the Toss error code/description."""
+
+
+def _explain_auth_error(resp: httpx.Response) -> str:
+    """Build a human-readable reason from a Toss error response body.
+
+    Toss returns OAuth errors as {"error","error_description"} and API errors as
+    {"error":{"code","message"}}. Fall back to a short raw snippet.
+    """
+    try:
+        data = resp.json()
+    except (ValueError, TypeError):
+        return f"HTTP {resp.status_code}: {resp.text[:200]}"
+    err = data.get("error")
+    if isinstance(err, dict):
+        return f"HTTP {resp.status_code}: {err.get('code')} — {err.get('message')}"
+    desc = data.get("error_description") or data.get("message")
+    return f"HTTP {resp.status_code}: {err} — {desc}"
+
+
+
 class TossAuth:
     def __init__(
         self,
@@ -73,7 +95,10 @@ class TossAuth:
             data=payload,
             headers={"Content-Type": "application/x-www-form-urlencoded"},
         )
-        resp.raise_for_status()
+        if resp.status_code >= 400:
+            reason = _explain_auth_error(resp)
+            log.error("Toss token request failed: %s", reason)
+            raise TossAuthError(f"Toss token request failed — {reason}")
         token = TokenResponse.model_validate(resp.json())
         self._token = token.access_token
         self._expires_at = time.time() + token.expires_in

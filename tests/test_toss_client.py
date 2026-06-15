@@ -5,7 +5,7 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from tossai.toss.auth import TossAuth
+from tossai.toss.auth import TossAuth, TossAuthError
 from tossai.toss.client import TossClient
 
 
@@ -74,6 +74,25 @@ def test_401_triggers_refresh(settings, tmp_path):
     quote = client.get_quote("AAPL")
     assert quote.price == 42.0
     assert state["served_401"] is True
+
+
+def test_auth_error_surfaces_toss_message(settings, tmp_path):
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            401,
+            json={"error": "invalid_client",
+                  "error_description": "Client authentication failed: client_secret"},
+        )
+
+    auth = TossAuth(
+        settings, cache_path=str(tmp_path / "tok.json"),
+        http=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    with pytest.raises(TossAuthError) as exc:
+        auth.get_token()
+    msg = str(exc.value)
+    assert "invalid_client" in msg
+    assert "client_secret" in msg
 
 
 def test_429_raises_after_retries(settings, tmp_path):

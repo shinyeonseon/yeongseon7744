@@ -19,7 +19,7 @@ from tenacity import (
 from tossai.config import Settings
 from tossai.logging_setup import get_logger
 from tossai.models import Candle
-from tossai.toss.auth import TossAuth
+from tossai.toss.auth import TossAuth, _explain_auth_error
 from tossai.toss.schemas import CandleRaw, QuoteResponse
 
 log = get_logger(__name__)
@@ -70,7 +70,8 @@ class TossClient:
         if resp.status_code == 429:
             # Surface as a transport-style error so tenacity backs off.
             raise httpx.TransportError(f"rate limited (429) on {path}")
-        resp.raise_for_status()
+        if resp.status_code >= 400:
+            raise RuntimeError(f"Toss API error on {path} — {_explain_auth_error(resp)}")
         return resp.json()
 
     # ---- public, read-only endpoints (Toss Open API v1) ----
