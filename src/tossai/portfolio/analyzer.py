@@ -29,6 +29,8 @@ class PortfolioAnalyzer:
         except Exception as exc:
             log.error("holdings fetch failed: %s", exc)
             positions = []
+        # Skip fully-closed positions (0 shares) — nothing to advise, saves a call.
+        positions = [p for p in positions if p.quantity > 0]
 
         engine = self.engine or ClaudeEngine(self.s)
         results = []

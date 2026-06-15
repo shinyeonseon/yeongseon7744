@@ -15,6 +15,12 @@ log = get_logger(__name__)
 _ACTION_EMOJI = {"ADD": "🟢", "HOLD": "⚪", "TRIM": "🟠", "SELL": "🔴", "ANALYSIS_FAILED": "⚠️"}
 
 
+def _oneline(text: str, n: int = 48) -> str:
+    """Collapse newlines/extra whitespace so a rationale stays on one row."""
+    flat = " ".join((text or "").split())
+    return (flat[: n - 1] + "…") if len(flat) > n else flat
+
+
 class PortfolioReport(BaseModel):
     generated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     positions_count: int = 0
@@ -46,7 +52,7 @@ def console_table(report: PortfolioReport) -> str:
         p, a = r.position, r.advice
         emoji = _ACTION_EMOJI.get(a.action.value, "")
         pl = f"{p.pl_rate * 100:+.1f}" if p.pl_rate is not None else "-"
-        rationale = (a.rationale[:42] + "…") if len(a.rationale) > 43 else a.rationale
+        rationale = _oneline(a.rationale, 48)
         lines.append(
             f"{p.symbol:<8}{p.market:<5}{p.quantity:>6.0f} {p.avg_price:>11.2f} "
             f"{p.last_price:>11.2f} {pl:>8}  {emoji}{a.action.value:<7}{a.confidence:<6.2f}{rationale}"

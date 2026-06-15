@@ -57,7 +57,8 @@ def console_table(report: Report) -> str:
     for r in report.results:
         rec = r.recommendation
         target = f"{rec.target_price:.2f}" if rec.target_price is not None else "-"
-        rationale = (rec.rationale[:40] + "…") if len(rec.rationale) > 41 else rec.rationale
+        rationale = " ".join((rec.rationale or "").split())
+        rationale = (rationale[:40] + "…") if len(rationale) > 41 else rationale
         lines.append(
             f"{r.candidate.symbol:<10}{r.candidate.market:<5}{rec.action.value:<8}"
             f"{rec.confidence:<6.2f}{target:<12}{rationale}"

@@ -99,6 +99,38 @@ def test_portfolio_analyzer(settings):
     assert report.results[0].advice.action == PortfolioAction.HOLD
 
 
+def test_portfolio_analyzer_skips_zero_quantity(settings):
+    positions = [
+        Position(symbol="MU", market="US", quantity=13, avg_price=382.84, last_price=1070.45),
+        Position(symbol="SOXL", market="US", quantity=0, avg_price=226.64, last_price=271.32),
+    ]
+    report = PortfolioAnalyzer(settings, _FakeClient(positions), _FakeEngine()).run()
+    assert report.positions_count == 1  # SOXL (0 shares) skipped
+    assert report.results[0].position.symbol == "MU"
+
+
+def test_portfolio_console_table_is_one_row_per_position(settings):
+    from tossai.models import AnalyzedPosition, PositionAdvice
+    from tossai.output.portfolio_report import PortfolioReport, console_table
+
+    rep = PortfolioReport(positions_count=1, results=[
+        AnalyzedPosition(
+            position=Position(symbol="MU", market="US", quantity=13, avg_price=382.84,
+                              last_price=1070.45, pl_rate=1.796),
+            advice=PositionAdvice(
+                action=PortfolioAction.HOLD, confidence=0.65,
+                rationale="**Position Overview:**\n- Entry (avg cost) far below price\n- Momentum strong",
+                risks=[]),
+        ),
+    ])
+    out = console_table(rep)
+    # the MU row must be a single line (rationale newlines flattened, not split)
+    mu_lines = [ln for ln in out.splitlines() if ln.startswith("MU")]
+    assert len(mu_lines) == 1 and "HOLD" in mu_lines[0]
+    # no orphan rationale fragments on their own lines ("- "/"**"; dashes alone = divider)
+    assert not any(ln.lstrip().startswith(("- ", "**")) for ln in out.splitlines())
+
+
 def test_position_signals_snapshot():
     pos = Position(symbol="MU", market="US", avg_price=100.0, last_price=130.0)
     sig = _position_signals(make_series([100.0 * (1.001 ** i) for i in range(260)]), pos)
