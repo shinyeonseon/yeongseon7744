@@ -74,45 +74,41 @@ class TossClient:
             raise RuntimeError(f"Toss API error on {path} — {_explain_auth_error(resp)}")
         return resp.json()
 
-    # ---- public, read-only endpoints (Toss Open API v1) ----
+    # ---- public, read-only endpoints (Toss Open API) ----
     def get_quote(self, symbol: str) -> QuoteResponse:
-        # GET /api/v1/prices?symbols=005930  (현재가)
+        # GET /api/v1/prices?symbols=005930 -> {"result":[{"lastPrice": "...", ...}]}
         data = self._get("/api/v1/prices", params={"symbols": symbol})
-        obj = _first_obj(_unwrap_list(data, keys=("prices", "items", "data")))
-        if obj is None:
-            obj = _unwrap(data, "price", default={"symbol": symbol})
-        obj.setdefault("symbol", symbol)
-        return QuoteResponse.model_validate(obj)
+        obj = _first_obj(_unwrap_list(data, keys=("result", "prices", "items", "data"))) or {}
+        last = obj.get("lastPrice")
+        return QuoteResponse(
+            symbol=obj.get("symbol", symbol),
+            price=float(last) if last not in (None, "") else None,
+        )
 
-    def get_candles(self, symbol: str, interval: str = "day", count: int = 120) -> list[Candle]:
-        # GET /api/v1/candles  (캔들 OHLCV; 1분봉/일봉)
-        # TODO(schema): confirm exact param names (timeframe/period) + response keys
-        # against a live response, then tighten CandleRaw.
+    def get_candles(self, symbol: str, interval: str = "1d", count: int = 300) -> list[Candle]:
+        # GET /api/v1/candles -> {"result":{"candles":[{"timestamp","openPrice",...}]}}
+        # interval ∈ {"1d","1m"}. Toss returns newest-first; we sort chronologically.
         data = self._get(
             "/api/v1/candles",
-            params={"symbol": symbol, "symbols": symbol, "interval": interval, "count": count},
+            params={"symbol": symbol, "interval": interval, "count": count},
         )
-        rows = _unwrap_list(data, keys=("candles", "items", "data"))
+        rows = []
+        if isinstance(data, dict) and isinstance(data.get("result"), dict):
+            rows = data["result"].get("candles", [])
+        if not rows:
+            rows = _unwrap_list(data, keys=("candles", "items", "data"))
         candles: list[Candle] = []
         for row in rows:
             try:
                 candles.append(CandleRaw.model_validate(row).to_candle())
             except Exception as exc:  # tolerate a single malformed bar
                 log.debug("skip malformed candle for %s: %s", symbol, exc)
+        candles.sort(key=lambda c: c.ts)  # oldest -> newest
         return candles
 
     def get_balances(self) -> dict:
         """Holdings (account-scoped: Bearer + X-Tossinvest-Account)."""
         return self._get("/api/v1/holdings", account_scoped=True)
-
-
-def _unwrap(data: dict, key: str, default: dict | None = None) -> dict:
-    """Pull a nested object if the API wraps responses (e.g. {"quote": {...}})."""
-    if isinstance(data, dict) and key in data and isinstance(data[key], dict):
-        return data[key]
-    if isinstance(data, dict) and "data" in data and isinstance(data["data"], dict):
-        return data["data"]
-    return data if isinstance(data, dict) else (default or {})
 
 
 def _unwrap_list(data: object, keys: tuple[str, ...]) -> list:

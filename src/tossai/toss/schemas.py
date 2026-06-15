@@ -1,16 +1,19 @@
 """Pydantic models for Toss Open API payloads.
 
-TODO(schema): the exact field names/shapes are NOT yet confirmed — the public
-docs (developers.tossinvest.com) require auth and were not machine-readable at
-build time. These models use ``extra="allow"`` so unknown fields are preserved,
-and parsing is intentionally lenient. Confirm and tighten against the live API
-using `python -m tossai doctor` once real credentials are in place. Keeping all
-Toss-specific shapes here means schema fixes touch exactly one file.
+Field names confirmed against live responses. Toss returns numeric values as
+strings (e.g. "341500"); pydantic coerces them to float. ``extra="allow"`` keeps
+any extra fields. All Toss-specific shapes live here so schema changes touch one
+file.
+
+Confirmed shapes:
+  GET /api/v1/prices   -> {"result":[{"symbol","timestamp","lastPrice","currency"}]}
+  GET /api/v1/candles  -> {"result":{"candles":[{"timestamp","openPrice",
+                           "highPrice","lowPrice","closePrice","volume","currency"}]}}
 """
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
 
@@ -40,45 +43,23 @@ class QuoteResponse(BaseModel):
 
 
 class CandleRaw(BaseModel):
-    """One OHLCV bar as returned by Toss. TODO(schema): confirm field names.
-
-    We accept a few likely aliases and normalize to the internal ``Candle``.
-    """
+    """One OHLCV bar from GET /api/v1/candles (Toss field names; string values)."""
 
     model_config = ConfigDict(extra="allow")
 
-    # Accept any of these for the timestamp; resolved in ``to_candle``.
-    ts: datetime | int | str | None = None
-    dt: datetime | int | str | None = None
-    open: float
-    high: float
-    low: float
-    close: float
+    timestamp: datetime
+    openPrice: float  # noqa: N815 - matches Toss field name
+    highPrice: float  # noqa: N815
+    lowPrice: float  # noqa: N815
+    closePrice: float  # noqa: N815
     volume: float = 0.0
 
     def to_candle(self) -> Candle:
-        raw_ts = self.ts if self.ts is not None else self.dt
-        ts = _coerce_ts(raw_ts)
         return Candle(
-            ts=ts,
-            open=self.open,
-            high=self.high,
-            low=self.low,
-            close=self.close,
+            ts=self.timestamp,
+            open=self.openPrice,
+            high=self.highPrice,
+            low=self.lowPrice,
+            close=self.closePrice,
             volume=self.volume,
         )
-
-
-def _coerce_ts(value: object) -> datetime:
-    if isinstance(value, datetime):
-        return value
-    if isinstance(value, (int, float)):
-        # Heuristic: ms vs s epoch.
-        secs = value / 1000.0 if value > 1e12 else float(value)
-        return datetime.fromtimestamp(secs, tz=UTC)
-    if isinstance(value, str):
-        try:
-            return datetime.fromisoformat(value.replace("Z", "+00:00"))
-        except ValueError:
-            pass
-    return datetime.now(tz=UTC)

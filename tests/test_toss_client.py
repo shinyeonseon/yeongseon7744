@@ -43,19 +43,24 @@ def test_get_candles_parses(settings, tmp_path):
         return httpx.Response(
             200,
             json={
-                "candles": [
-                    {"ts": "2026-01-01T00:00:00Z", "open": 1, "high": 2, "low": 0.5,
-                     "close": 1.5, "volume": 100},
-                    {"ts": "2026-01-02T00:00:00Z", "open": 1.5, "high": 2.5, "low": 1,
-                     "close": 2.0, "volume": 200},
-                ]
+                "result": {
+                    "candles": [
+                        # Toss returns newest-first with string values; client sorts asc.
+                        {"timestamp": "2026-01-02T00:00:00.000+09:00", "openPrice": "1.5",
+                         "highPrice": "2.5", "lowPrice": "1", "closePrice": "2.0",
+                         "volume": "200"},
+                        {"timestamp": "2026-01-01T00:00:00.000+09:00", "openPrice": "1",
+                         "highPrice": "2", "lowPrice": "0.5", "closePrice": "1.5",
+                         "volume": "100"},
+                    ]
+                }
             },
         )
 
     client, _ = _client_with(settings, handler, tmp_path)
     candles = client.get_candles("005930")
     assert len(candles) == 2
-    assert candles[0].close == 1.5
+    assert candles[0].close == 1.5  # oldest first after sort
     assert candles[1].volume == 200
 
 
@@ -68,7 +73,7 @@ def test_401_triggers_refresh(settings, tmp_path):
         if not state["served_401"]:
             state["served_401"] = True
             return httpx.Response(401, json={"error": "expired"})
-        return httpx.Response(200, json={"prices": [{"symbol": "AAPL", "price": 42.0}]})
+        return httpx.Response(200, json={"result": [{"symbol": "AAPL", "lastPrice": "42.0"}]})
 
     client, _ = _client_with(settings, handler, tmp_path)
     quote = client.get_quote("AAPL")
