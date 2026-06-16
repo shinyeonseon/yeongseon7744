@@ -7,6 +7,9 @@ breaks a run (mirrors the fundamentals providers).
 
 from __future__ import annotations
 
+import contextlib
+import io
+import logging
 from datetime import UTC, date, datetime
 
 import httpx
@@ -16,6 +19,19 @@ from tossai.context.models import MacroSnapshot, NewsItem
 from tossai.logging_setup import get_logger
 
 log = get_logger(__name__)
+
+
+@contextlib.contextmanager
+def _quiet():
+    """Silence yfinance's noisy 404/ERROR logs + prints during a fetch (ETFs and
+    some symbols legitimately have no news/earnings — handled as empty)."""
+    buf = io.StringIO()
+    logging.disable(logging.CRITICAL)
+    try:
+        with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
+            yield
+    finally:
+        logging.disable(logging.NOTSET)
 
 # FOMC meeting end-dates are published a year ahead, so a static table gives a
 # reliable "next event" without any API key. (2026 schedule.)
@@ -48,7 +64,8 @@ def fetch_news(symbol: str, market: str, limit: int = 3) -> list[NewsItem]:
         return []
     for ticker in _yf_candidates(symbol, market):
         try:
-            raw = yf.Ticker(ticker).news or []
+            with _quiet():
+                raw = yf.Ticker(ticker).news or []
         except Exception as exc:
             log.debug("news fetch failed for %s: %s", ticker, exc)
             continue
@@ -101,7 +118,8 @@ def fetch_next_earnings(symbol: str, market: str) -> str | None:
         return None
     for ticker in _yf_candidates(symbol, market):
         try:
-            cal = yf.Ticker(ticker).calendar
+            with _quiet():
+                cal = yf.Ticker(ticker).calendar
         except Exception as exc:
             log.debug("earnings fetch failed for %s: %s", ticker, exc)
             continue
