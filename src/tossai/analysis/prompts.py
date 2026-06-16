@@ -30,9 +30,12 @@ SYSTEM_PROMPT = (
     "- Signal keys are namespaced by strategy (e.g. 'graham.per', "
     "'buffett_quality.roe', 'magic_formula.earnings_yield'). Fundamental data may "
     "be absent for some markets/symbols; if so, simply rely on what is present.\n"
-    "- LANGUAGE (REQUIRED): write `rationale` and every item in `risks` in "
+    "- LANGUAGE (REQUIRED): write `rationale`, `key_points`, and `risks` in "
     "natural Korean (반드시 한국어로 작성). Keep ticker symbols, action codes, and "
     "numbers as-is. Do NOT answer in English.\n"
+    "- BE CONCISE: `rationale` is ONE headline sentence; put the substance in "
+    "`key_points` as a few short, scannable bullets (each one line). Do NOT write "
+    "long paragraphs.\n"
     "- You MUST respond by calling the submit_recommendation tool exactly once."
 )
 
@@ -60,19 +63,25 @@ RECOMMENDATION_TOOL = {
             },
             "rationale": {
                 "type": "string",
-                "description": "제공된 시그널에 근거한 간결한 분석. 반드시 한국어(한글)로 작성.",
+                "description": "한 줄 핵심 요약(120자 이내, 한국어). 줄글 금지.",
+            },
+            "key_points": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "가장 중요한 근거 2~4개. 각 항목은 한 줄(90자 이내) 한국어 "
+                               "불릿. '라벨: 내용' 형태로 간결하게. 문단 쓰지 말 것.",
             },
             "risks": {
                 "type": "array",
                 "items": {"type": "string"},
-                "description": "이 견해에 대한 구체적 위험들. 반드시 한국어(한글)로 작성.",
+                "description": "구체적 리스크 1~3개. 각 항목 한 줄(70자 이내) 한국어.",
             },
             "time_horizon": {
                 "type": "string",
                 "description": "e.g. 'days', 'weeks', '1-3 months'.",
             },
         },
-        "required": ["action", "confidence", "rationale", "risks"],
+        "required": ["action", "confidence", "rationale", "key_points", "risks"],
     },
 }
 

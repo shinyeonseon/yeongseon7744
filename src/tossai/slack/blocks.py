@@ -79,6 +79,16 @@ def _divider() -> dict:
     return {"type": "divider"}
 
 
+def _conf_bar(conf: float) -> str:
+    """Five-segment confidence meter, e.g. 0.72 -> '▰▰▰▰▱ 72%'."""
+    filled = max(0, min(5, round(conf * 5)))
+    return f"{'▰' * filled}{'▱' * (5 - filled)} {conf:.0%}"
+
+
+def _bullets(items: list[str], marker: str = "•") -> str:
+    return "\n".join(f"{marker} {_slack_mrkdwn(s).strip()}" for s in items if s and s.strip())
+
+
 def _slack_mrkdwn(text: str) -> str:
     """Convert the Markdown Claude emits to Slack's mrkdwn so it renders cleanly
     (Slack bold is *one* asterisk, so '**x**' would otherwise show literal '**')."""
@@ -104,21 +114,26 @@ def _recommendation_sections(item: AnalyzedCandidate) -> list[dict]:
     rec = item.recommendation
     emoji = _ACTION_EMOJI.get(rec.action, "•")
     title = c.name and f"{c.name} `{c.symbol}`" or f"`{c.symbol}`"
-    blocks = [_section(
-        f"{emoji} *{title}*  ·  {c.market}  ·  *{_action_ko(rec.action.value)}*  ·  확신도 {rec.confidence:.0%}"
-    )]
-    # Compact metadata line (only the fields we actually have).
-    meta = []
+    lead = f"{emoji} *{title}*  ·  {c.market}  ·  *{_action_ko(rec.action.value)}*"
+    if rec.rationale:
+        lead += f"\n_{_truncate(_slack_mrkdwn(rec.rationale), 300)}_"
+    blocks = [_section(lead)]
+    # Visual metric line: confidence meter + the fields we actually have.
+    meta = [f"확신도 {_conf_bar(rec.confidence)}"]
     if rec.target_price is not None:
         meta.append(f"🎯 목표가 *{rec.target_price:,.2f}*")
     if c.price is not None:
         meta.append(f"현재가 {c.price:,.2f}")
     if getattr(c, "flagged_by", None):
-        meta.append(f"전략 {len(c.flagged_by)}종 동의")
-    if meta:
-        blocks.append(_context("  ·  ".join(meta)))
-    if rec.rationale:
-        blocks.extend(_text_sections(_slack_mrkdwn(rec.rationale)))
+        meta.append(f"✅ 전략 {len(c.flagged_by)}종 동의")
+    blocks.append(_context("  ·  ".join(meta)))
+    body = ""
+    if rec.key_points:
+        body += "*핵심*\n" + _bullets(rec.key_points)
+    if rec.risks:
+        body += ("\n\n" if body else "") + "*리스크*\n" + _bullets(rec.risks, "⚠️")
+    if body:
+        blocks.extend(_text_sections(body))
     blocks.append(_divider())
     return blocks
 
@@ -149,10 +164,11 @@ def _portfolio_sections(item) -> list[dict]:
     p, a = item.position, item.advice
     emoji = _PORTFOLIO_EMOJI.get(a.action.value, "•")
     title = p.name and f"{p.name} `{p.symbol}`" or f"`{p.symbol}`"
-    blocks = [_section(
-        f"{emoji} *{title}*  ·  {p.market}  ·  *{_action_ko(a.action.value)}*  ·  확신도 {a.confidence:.0%}"
-    )]
-    meta = []
+    lead = f"{emoji} *{title}*  ·  {p.market}  ·  *{_action_ko(a.action.value)}*"
+    if a.rationale:
+        lead += f"\n_{_truncate(_slack_mrkdwn(a.rationale), 300)}_"
+    blocks = [_section(lead)]
+    meta = [f"확신도 {_conf_bar(a.confidence)}"]
     if p.pl_rate is not None:
         arrow = "🔺" if p.pl_rate >= 0 else "🔻"
         meta.append(f"손익 {arrow} *{p.pl_rate * 100:+.1f}%*")
@@ -160,10 +176,14 @@ def _portfolio_sections(item) -> list[dict]:
         meta.append(f"평단 {p.avg_price:,.2f}")
     if p.last_price:
         meta.append(f"현재가 {p.last_price:,.2f}")
-    if meta:
-        blocks.append(_context("  ·  ".join(meta)))
-    if a.rationale:
-        blocks.extend(_text_sections(_slack_mrkdwn(a.rationale)))
+    blocks.append(_context("  ·  ".join(meta)))
+    body = ""
+    if a.key_points:
+        body += "*핵심*\n" + _bullets(a.key_points)
+    if a.risks:
+        body += ("\n\n" if body else "") + "*리스크*\n" + _bullets(a.risks, "⚠️")
+    if body:
+        blocks.extend(_text_sections(body))
     blocks.append(_divider())
     return blocks
 

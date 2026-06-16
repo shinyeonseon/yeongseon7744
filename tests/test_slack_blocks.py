@@ -88,22 +88,25 @@ def test_help_and_status():
     assert "market" in "".join(str(b) for b in sb)
 
 
-def test_rationale_shown_in_full():
-    # A normal multi-paragraph rationale must not be clipped to a sentence.
-    body = "x" * 500
+def test_card_shows_confidence_bar_and_bullets():
     rep = _report()
-    rep.results[0].recommendation.rationale = body
+    rec = rep.results[0].recommendation
+    rec.rationale = "단기 차익실현 적절"
+    rec.key_points = ["모멘텀: 12개월 +80%", "추세: 200MA 상회"]
+    rec.risks = ["밸류 부담"]
     text = "".join(str(b) for b in blocks.report_blocks(rep))
-    assert body in text and "…" not in text
+    assert "▰" in text and "▱" in text          # confidence meter
+    assert "핵심" in text and "리스크" in text
+    assert "모멘텀: 12개월 +80%" in text and "단기 차익실현 적절" in text
 
 
-def test_long_rationale_splits_into_multiple_sections():
-    # Beyond a single Slack section's limit the rationale is split, not truncated.
+def test_long_body_splits_into_multiple_sections():
+    # A long key-point body is split across sections, never clipped with '…'.
     rep = _report()
-    rep.results[0].recommendation.rationale = "y" * 6000
+    rep.results[0].recommendation.key_points = ["y" * 6000]
     bs = blocks.report_blocks(rep)
     text = "".join(str(b) for b in bs)
     assert "…" not in text                 # split, not clipped
     assert text.count("y" * 200) >= 1      # the body is preserved
     section_count = sum(1 for b in bs if b.get("type") == "section")
-    assert section_count >= 3              # summary + >=2 rationale chunks
+    assert section_count >= 3              # lead + >=2 body chunks

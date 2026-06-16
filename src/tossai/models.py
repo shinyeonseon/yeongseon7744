@@ -51,6 +51,7 @@ class Recommendation(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
     target_price: float | None = None
     rationale: str = ""
+    key_points: list[str] = Field(default_factory=list)
     risks: list[str] = Field(default_factory=list)
     time_horizon: str = ""
 
@@ -93,6 +94,7 @@ class PositionAdvice(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
     target_price: float | None = None
     rationale: str = ""
+    key_points: list[str] = Field(default_factory=list)
     risks: list[str] = Field(default_factory=list)
 
 
