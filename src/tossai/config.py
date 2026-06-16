@@ -127,9 +127,12 @@ class Settings(BaseSettings):
     backtest_vol_target: float = 0.0  # annualized; 0 disables vol targeting
     backtest_vol_lookback: int = 20
     # Diversification cap: at most this many held names may share a sector
-    # (needs `sector:` labels in universe.yaml). Directly limits the correlated
-    # sector-cluster drawdown the backtest exposed. 0 disables.
-    max_per_sector: int = 3
+    # (needs `sector:` labels in universe.yaml). Sound in principle, but live
+    # backtests showed it did NOT cut drawdown here and slightly hurt: this
+    # strategy's drawdown is a momentum-factor event (high-beta names fall
+    # together across sectors), not a single-sector crash. Default OFF; raise it
+    # if you want sector variety in the recommendation set. 0 disables.
+    max_per_sector: int = 0
 
     # ---- Investment-master strategies (fundamental) ----
     # Need a fundamentals source (pykrx for KRX, yfinance for US). Lazy-imported;
