@@ -58,6 +58,21 @@ def test_forced_tool_choice_used(settings):
     assert fake.last_kwargs["tool_choice"] == {"type": "tool", "name": "submit_recommendation"}
 
 
+class _StubContext:
+    def payload_for(self, symbol, market):
+        return {"next_earnings_date": "2026-06-20", "macro": {"upcoming_events": ["FOMC D-2"]}}
+
+
+def test_market_context_reaches_payload(settings):
+    resp = _fake_response(
+        {"action": "BUY", "confidence": 0.6, "rationale": "x", "risks": []}
+    )
+    fake = _FakeClient(resp)
+    ClaudeEngine(settings, client=fake).analyze(_candidate(), _StubContext())
+    sent = fake.last_kwargs["messages"][0]["content"]
+    assert "market_context" in sent and "2026-06-20" in sent and "FOMC D-2" in sent
+
+
 def test_malformed_response_marked_failed(settings):
     # Response with no tool_use block → analysis fails gracefully.
     bad = SimpleNamespace(content=[], usage=SimpleNamespace(input_tokens=1, output_tokens=1))

@@ -64,7 +64,11 @@ class Orchestrator:
         candidates = self.screener.screen_universe(candle_map, markets)
 
         engine = self.engine or ClaudeEngine(self.s)
-        analyzed = engine.analyze_all(candidates) if candidates else []
+        from tossai.context.provider import build_market_context_provider
+
+        context = build_market_context_provider(self.s)
+        analyzed = engine.analyze_all(candidates, context) if candidates else []
+        macro = context.macro() if context else None
 
         # Risk-parity / All-Weather suggestion: inverse-vol weights over the
         # screened set (analysis only — never an order).
@@ -81,6 +85,7 @@ class Orchestrator:
             results=analyzed,
             estimated_cost_usd=round(engine.estimated_cost_usd(), 6),
             suggested_weights=suggested_weights,
+            macro=(macro.as_line() if macro and not macro.is_empty() else ""),
         )
         save_report(report, self.s.reports_dir)
 

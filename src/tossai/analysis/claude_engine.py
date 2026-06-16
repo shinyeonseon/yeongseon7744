@@ -38,16 +38,16 @@ class ClaudeEngine:
         self.total_input_tokens = 0
         self.total_output_tokens = 0
 
-    def analyze_all(self, candidates: list[Candidate]) -> list[AnalyzedCandidate]:
+    def analyze_all(self, candidates: list[Candidate], context=None) -> list[AnalyzedCandidate]:
         out: list[AnalyzedCandidate] = []
         for cand in candidates[: self.s.claude_max_candidates]:
-            out.append(self.analyze(cand))
+            out.append(self.analyze(cand, context))
         self._budget_check()
         return out
 
-    def analyze(self, candidate: Candidate) -> AnalyzedCandidate:
+    def analyze(self, candidate: Candidate, context=None) -> AnalyzedCandidate:
         try:
-            rec, in_tok, out_tok = self._call(candidate)
+            rec, in_tok, out_tok = self._call(candidate, context)
         except Exception as exc:
             log.warning("Claude analysis failed for %s: %s", candidate.symbol, exc)
             return AnalyzedCandidate(
@@ -74,14 +74,20 @@ class ClaudeEngine:
         wait=wait_exponential(multiplier=1, min=2, max=20),
         reraise=True,
     )
-    def _call(self, candidate: Candidate) -> tuple[Recommendation, int, int]:
+    def _call(self, candidate: Candidate, context=None) -> tuple[Recommendation, int, int]:
+        ctx = None
+        if context is not None:
+            try:
+                ctx = context.payload_for(candidate.symbol, candidate.market)
+            except Exception as exc:
+                log.debug("market context lookup failed for %s: %s", candidate.symbol, exc)
         resp = self._client.messages.create(
             model=self.model,
             max_tokens=self.s.claude_max_tokens,
             system=SYSTEM_PROMPT,
             tools=[RECOMMENDATION_TOOL],
             tool_choice={"type": "tool", "name": "submit_recommendation"},
-            messages=[{"role": "user", "content": build_user_message(candidate)}],
+            messages=[{"role": "user", "content": build_user_message(candidate, ctx)}],
         )
         rec = _extract_recommendation(resp)
         usage = getattr(resp, "usage", None)

@@ -33,6 +33,9 @@ class PortfolioAnalyzer:
         positions = [p for p in positions if p.quantity > 0]
 
         engine = self.engine or ClaudeEngine(self.s)
+        from tossai.context.provider import build_market_context_provider
+
+        context = build_market_context_provider(self.s)
         results = []
         count = self.s.resolved_candle_count(260)
         for pos in positions:
@@ -42,12 +45,18 @@ class PortfolioAnalyzer:
                 log.warning("candle fetch failed for %s: %s", pos.symbol, exc)
                 candles = []
             signals = _position_signals(candles, pos)
+            if context is not None:
+                ctx = context.payload_for(pos.symbol, pos.market)
+                if ctx:
+                    signals["market_context"] = ctx
             results.append(engine.analyze_position(pos, signals))
 
+        macro = context.macro() if context else None
         return PortfolioReport(
             positions_count=len(positions),
             results=results,
             estimated_cost_usd=round(engine.estimated_cost_usd(), 6),
+            macro=(macro.as_line() if macro and not macro.is_empty() else ""),
         )
 
 

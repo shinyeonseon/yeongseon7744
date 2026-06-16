@@ -24,6 +24,7 @@ class Report(BaseModel):
     # Risk-parity / All-Weather suggested portfolio weights (inverse-vol). A
     # suggestion only — never an order.
     suggested_weights: dict[str, float] = Field(default_factory=dict)
+    macro: str = ""  # one-line macro backdrop (indicators + next FOMC), may be empty
     disclaimer: str = DISCLAIMER
 
     def actionable(self, min_confidence: float) -> list[AnalyzedCandidate]:

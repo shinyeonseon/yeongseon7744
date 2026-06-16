@@ -150,8 +150,10 @@ def report_blocks(report: Report, min_confidence: float = 0.0) -> list[dict]:
             f"유니버스 *{report.universe_size}*  ·  스크리닝 *{report.screened_count}*  ·  "
             f"실행대상 *{len(actionable)}*  ·  분석비용 ~${report.estimated_cost_usd:.4f}"
         ),
-        _divider(),
     ]
+    if getattr(report, "macro", ""):
+        blocks.append(_context(f"🌐 {report.macro}"))
+    blocks.append(_divider())
     if not report.results:
         blocks.append(_section("_스크리닝을 통과한 종목이 없습니다._"))
     for item in report.results:
@@ -198,6 +200,8 @@ def portfolio_blocks(report: PortfolioReport, min_confidence: float = 0.0) -> li
             f"보유종목 *{report.positions_count}*  ·  분석비용 ~${report.estimated_cost_usd:.4f}"
         ),
     ]
+    if getattr(report, "macro", ""):
+        blocks.append(_context(f"🌐 {report.macro}"))
     shown = [r for r in report.results if r.advice.confidence >= min_confidence]
     if not shown:
         blocks.append(_section("_조회된 보유종목이 없습니다 (TOSS_ACCOUNT_SEQ 확인)._"))

@@ -137,6 +137,17 @@ class Settings(BaseSettings):
     buffett_max_pe: float = 25.0
     piotroski_min_score: int = 5
 
+    # ---- Market context (macro / news / earnings) ----
+    # Reference context handed to Claude alongside the numeric signals. All
+    # sources are lazy + fail-soft; news/earnings use yfinance, macro indicators
+    # use FRED (needs FRED_API_KEY) while the FOMC schedule needs no key.
+    context_enabled: bool = True
+    context_news_enabled: bool = True
+    context_news_max: int = 3
+    context_earnings_enabled: bool = True
+    context_macro_enabled: bool = True
+    fred_api_key: str = ""
+
     # ---- Runtime ----
     market: Market = Market.BOTH
     loop_interval_min: int = 30

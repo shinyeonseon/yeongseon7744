@@ -30,6 +30,11 @@ SYSTEM_PROMPT = (
     "- Signal keys are namespaced by strategy (e.g. 'graham.per', "
     "'buffett_quality.roe', 'magic_formula.earnings_yield'). Fundamental data may "
     "be absent for some markets/symbols; if so, simply rely on what is present.\n"
+    "- 'market_context' may include recent news headlines, the next earnings date, "
+    "and a macro backdrop (indicators, upcoming events like FOMC). Treat it as "
+    "qualitative reference only: let the numeric signals drive the call, flag an "
+    "imminent earnings date or major macro event as a risk/timing note, and never "
+    "over-trust a single headline. It is often absent — then ignore it.\n"
     "- LANGUAGE (REQUIRED): write `rationale`, `key_points`, and `risks` in "
     "natural Korean (반드시 한국어로 작성). Keep ticker symbols, action codes, and "
     "numbers as-is. Do NOT answer in English.\n"
@@ -86,7 +91,7 @@ RECOMMENDATION_TOOL = {
 }
 
 
-def build_user_message(candidate: Candidate) -> str:
+def build_user_message(candidate: Candidate, context: dict | None = None) -> str:
     """Pass signals as structured JSON, not free prose, so Claude reasons over
     the actual numbers the screener computed."""
     payload = {
@@ -101,6 +106,8 @@ def build_user_message(candidate: Candidate) -> str:
         "atr": candidate.atr,
         "technical_signals": candidate.signals,
     }
+    if context:
+        payload["market_context"] = context
     return (
         "Analyze this single candidate and call submit_recommendation. "
         "rationale와 risks는 반드시 한국어로 작성하세요.\n\n"

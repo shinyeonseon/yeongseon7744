@@ -32,6 +32,7 @@ class PortfolioReport(BaseModel):
     positions_count: int = 0
     results: list[AnalyzedPosition] = Field(default_factory=list)
     estimated_cost_usd: float = 0.0
+    macro: str = ""  # one-line macro backdrop (indicators + next FOMC), may be empty
     disclaimer: str = DISCLAIMER
 
 

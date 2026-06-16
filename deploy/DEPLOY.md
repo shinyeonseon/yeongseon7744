@@ -38,6 +38,15 @@ ANTHROPIC_API_KEY=sk-ant-...
 MARKET=KRX                 # 또는 US / BOTH
 ```
 
+**시장 컨텍스트(거시·뉴스·실적)** 는 기본 ON입니다. 종목 뉴스/다음 실적일은 yfinance로
+자동 수집되고, 거시 지표(실업률·기준금리·CPI 등)는 FRED 키가 있을 때만 채워집니다(없으면
+FOMC 일정만 표시). 끄거나 조정하려면:
+```ini
+CONTEXT_ENABLED=true          # 전체 토글
+FRED_API_KEY=                 # https://fredaccount.stlouisfed.org 에서 무료 발급(선택)
+CONTEXT_NEWS_MAX=3            # 종목당 뉴스 헤드라인 수(Claude 토큰 비용에 영향)
+```
+
 **자동 Slack 푸시(추천 시그널)를 원하면**:
 ```ini
 ALERT_CHANNELS=console,slack
