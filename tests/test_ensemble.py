@@ -68,6 +68,17 @@ def test_cap_to_max_candidates():
     assert cands[0].score >= cands[1].score  # sorted desc
 
 
+def test_consensus_breaks_score_ties(s):
+    # Two names tie at 1.0; CONSENSUS is flagged by two strategies, SOLO by one.
+    a = _StubStrategy(s, "alpha", "long", {"CONSENSUS": 1.0, "SOLO": 1.0})
+    b = _StubStrategy(s, "beta", "long", {"CONSENSUS": 1.0})
+    ens = StrategyEnsemble([a, b], s, RegimeProvider(s, vix_getter=_no_vix))
+    cm = {"CONSENSUS": [], "SOLO": []}
+    cands = ens.screen_universe(cm, {k: "KRX" for k in cm})
+    assert cands[0].symbol == "CONSENSUS"  # broader agreement wins the tie
+    assert len(cands[0].flagged_by) == 2 and len(cands[1].flagged_by) == 1
+
+
 def test_riskoff_downweights_long_bucket(s):
     a = _StubStrategy(s, "alpha", "long", {"AAA": 1.0})
     # VIX well above riskoff threshold (28) → long bucket halved (weight 0.5)

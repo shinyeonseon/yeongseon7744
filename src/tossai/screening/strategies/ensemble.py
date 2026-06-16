@@ -101,7 +101,9 @@ class StrategyEnsemble:
                 eff_score = res.score * weight
                 self._merge(merged, res, eff_score)
 
-        ranked = sorted(merged.values(), key=lambda m: m.score, reverse=True)
+        # Rank by score, then by how many strategies independently agree — broad
+        # consensus breaks the common saturation tie (many names at max score).
+        ranked = sorted(merged.values(), key=lambda m: (m.score, len(m.flagged_by)), reverse=True)
         top = ranked[: self.s.claude_max_candidates]
         return [self._to_candidate(m, markets.get(m.result.symbol, "KRX")) for m in top]
 
