@@ -201,6 +201,12 @@ class Settings(BaseSettings):
     vix_blackswan_threshold: float = 30.0
     gap_down_pct: float = 5.0
     vix_source_url: str = "https://stooq.com/q/l/?s=^vix&f=sd2t2ohlcv&e=csv"
+    # Per-position stop alerts (held positions only; analysis-only, never an order).
+    position_stop_enabled: bool = True
+    position_stop_loss_pct: float = 0.15   # hard stop: P&L ≤ −15% from avg cost
+    position_stop_atr_mult: float = 2.5    # trailing stop: price < recent high − N×ATR
+    position_stop_atr_period: int = 14
+    position_stop_high_lookback: int = 63  # window for the "recent high"
 
     @field_validator("market", "briefing_market", mode="before")
     @classmethod

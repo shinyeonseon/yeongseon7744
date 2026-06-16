@@ -75,10 +75,11 @@ def test_risk_alert_blocks_no_action_words():
         message="VIX 52.0 >= 30.0", value=52.0, threshold=30.0,
     )
     bs = blocks.risk_alert_blocks(alert)
-    text = "".join(str(b) for b in bs).lower()
-    assert "blackswan" in text
+    text = "".join(str(b) for b in bs)
+    assert "블랙스완" in text  # Korean label for the blackswan kind
     # analysis-only: must not instruct an order
-    assert "place order" not in text and "buy now" not in text
+    low = text.lower()
+    assert "place order" not in low and "buy now" not in low
     assert _has_disclaimer(bs)
 
 

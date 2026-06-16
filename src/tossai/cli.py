@@ -242,6 +242,31 @@ def track(
     typer.echo(tracker.summary_table(summary))
 
 
+@app.command()
+def risk(
+    no_slack: bool = typer.Option(False, "--no-slack", help="Console only; don't push to Slack."),
+) -> None:
+    """Run the risk scan once: VIX, gap-downs, and held-position stop alerts."""
+    settings = _boot()
+    from tossai.scheduler.jobs import _scan_risk
+    from tossai.slack import blocks as sb
+
+    alerts = _scan_risk(settings)
+    if not alerts:
+        typer.echo("No risk alerts.")
+        return
+    for a in alerts:
+        sym = f" [{a.symbol}]" if a.symbol else ""
+        typer.echo(f"  {a.severity.value.upper():<8} {a.kind.value}{sym}: {a.message}")
+    if not no_slack and settings.slack_bot_token and settings.slack_channel:
+        from tossai.slack.web_client import SlackClient
+
+        client = SlackClient(settings.slack_bot_token)
+        for a in alerts:
+            client.post_message(settings.slack_channel, sb.risk_alert_blocks(a), "Risk alert")
+        typer.echo(f"pushed {len(alerts)} alert(s) to Slack.")
+
+
 @app.command("run-loop")
 def run_loop(
     deep: bool = typer.Option(False, "--deep", help="Use the deeper Claude model."),

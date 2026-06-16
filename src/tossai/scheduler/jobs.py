@@ -161,4 +161,38 @@ def _scan_risk(settings: Settings) -> list:
                     found.append(gd)
     except Exception as exc:
         log.warning("risk scan failed: %s", exc)
+
+    found.extend(_scan_position_stops(settings))
     return found
+
+
+def _scan_position_stops(settings: Settings) -> list:
+    """Per-position stop alerts on held positions (skipped if no account set)."""
+    if not (settings.position_stop_enabled and settings.toss_account_seq):
+        return []
+    from tossai.risk.evaluators import evaluate_position_stop
+    from tossai.toss.client import TossClient
+
+    out = []
+    try:
+        with TossClient(settings) as client:
+            positions = [p for p in client.get_holdings() if p.quantity > 0]
+            need = settings.position_stop_atr_period + settings.position_stop_high_lookback + 5
+            for pos in positions:
+                try:
+                    candles = client.get_candles(pos.symbol, count=settings.resolved_candle_count(need))
+                except Exception as exc:
+                    log.debug("stop-scan candle fetch failed for %s: %s", pos.symbol, exc)
+                    candles = []
+                alert = evaluate_position_stop(
+                    pos, candles,
+                    stop_loss_pct=settings.position_stop_loss_pct,
+                    atr_mult=settings.position_stop_atr_mult,
+                    atr_period=settings.position_stop_atr_period,
+                    high_lookback=settings.position_stop_high_lookback,
+                )
+                if alert:
+                    out.append(alert)
+    except Exception as exc:
+        log.warning("position-stop scan failed: %s", exc)
+    return out

@@ -277,9 +277,11 @@ def weekly_briefing_blocks(
 
 def risk_alert_blocks(alert: RiskAlert) -> list[dict]:
     icon = {"critical": "🚨", "warning": "⚠️", "info": "ℹ️"}.get(alert.severity.value, "⚠️")
+    kind_ko = {"blackswan": "블랙스완(VIX 급등)", "gap_down": "갭다운",
+               "position_stop": "보유종목 손절"}.get(alert.kind.value, alert.kind.value)
     sym = f" · *{alert.symbol}*" if alert.symbol else ""
     return [
-        _header(f"{icon} 리스크 경보 — {alert.kind.value}"),
+        _header(f"{icon} 리스크 경보 — {kind_ko}"),
         _section(f"{alert.message}{sym}"),
         _disclaimer_block(),
     ]

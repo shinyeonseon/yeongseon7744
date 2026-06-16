@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 class RiskKind(str, Enum):
     BLACKSWAN = "blackswan"
     GAP_DOWN = "gap_down"
+    POSITION_STOP = "position_stop"
 
 
 class Severity(str, Enum):
