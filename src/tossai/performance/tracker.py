@@ -68,12 +68,15 @@ def evaluate(
         else:
             pending += 1
 
+    dates = sorted(r.date for r in records if r.date)
     return PerformanceSummary(
         total=len(records),
         directional=len(directional),
         scored=scored,
         pending=pending,
         primary_horizon=primary_horizon,
+        first_date=dates[0] if dates else None,
+        last_date=dates[-1] if dates else None,
         horizons=[_stat(h, per_h[h]) for h in horizons],
         by_action={a: _stat(primary_horizon, per_action[a]) for a in per_action},
         high_conf_avg=_avg(hi),
@@ -97,14 +100,19 @@ def _avg(vals: list[float]) -> float | None:
 
 
 def summary_table(s: PerformanceSummary) -> str:
+    span = f" · {s.first_date}→{s.last_date}" if s.first_date else ""
     lines = [
         f"=== Recommendation performance ({s.scored} scored, {s.pending} pending, "
-        f"{s.total} logged) ===",
+        f"{s.total} logged{span}) ===",
         "direction-adjusted forward return (BUY=+ret, SELL=−ret); win = right direction",
         f"{'HORIZON':<9}{'N':>5}{'WIN%':>8}{'AVG RET':>10}",
     ]
     for h in s.horizons:
         lines.append(f"{str(h.horizon) + 'd':<9}{h.n:>5}{h.win_rate:>7.0%}{h.avg_return:>10.2%}")
+    if s.scored == 0 and s.directional:
+        lines.append("")
+        lines.append("아직 채점 가능한 이력이 없습니다 — 추천 후 최소 horizon(거래일)이 지나야 "
+                     "scored로 전환됩니다. cron이 매일 쌓이면 의미 있어집니다.")
     lines.append("")
     for action, st in s.by_action.items():
         lines.append(f"  {action:<5} @{st.horizon}d: n={st.n} win={st.win_rate:.0%} "

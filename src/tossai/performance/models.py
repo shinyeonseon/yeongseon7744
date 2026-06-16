@@ -32,6 +32,8 @@ class PerformanceSummary(BaseModel):
     scored: int = 0               # had enough forward data for the primary horizon
     pending: int = 0              # too recent to score at the primary horizon
     primary_horizon: int = 21
+    first_date: str | None = None  # earliest logged recommendation
+    last_date: str | None = None   # latest logged recommendation
     horizons: list[HorizonStat] = Field(default_factory=list)
     by_action: dict[str, HorizonStat] = Field(default_factory=dict)
     high_conf_avg: float | None = None  # avg dir-return for confidence >= 0.7
