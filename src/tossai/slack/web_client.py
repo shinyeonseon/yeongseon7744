@@ -22,11 +22,24 @@ class SlackClient:
         self._client = web_client or WebClient(token=bot_token)
         self._http = http or httpx.Client(timeout=10.0)
 
+    # Slack allows at most 50 blocks per message; post in batches beyond that so a
+    # long report (many holdings / split rationales) is delivered, not rejected.
+    _MAX_BLOCKS = 45
+
     def post_message(self, channel: str, blocks: list[dict], text: str = "") -> bool:
-        """Post a proactive message to a channel. Returns success."""
+        """Post a proactive message to a channel, splitting into several messages
+        when the block list exceeds Slack's per-message limit. Returns success."""
         if not channel:
             log.warning("post_message skipped: no channel configured")
             return False
+        batches = [blocks[i:i + self._MAX_BLOCKS] for i in range(0, len(blocks), self._MAX_BLOCKS)] \
+            or [[]]
+        ok = True
+        for batch in batches:
+            ok = self._post_one(channel, batch, text) and ok
+        return ok
+
+    def _post_one(self, channel: str, blocks: list[dict], text: str) -> bool:
         try:
             self._client.chat_postMessage(channel=channel, blocks=blocks, text=text or " ")
             return True

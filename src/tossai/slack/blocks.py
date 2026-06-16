@@ -39,9 +39,30 @@ def _truncate(text: str, n: int = 280) -> str:
     return text if len(text) <= n else text[: n - 1] + "…"
 
 
-# Slack section text caps at 3000 chars; show the full rationale (minus the short
-# symbol/action prefix) instead of clipping it to a sentence.
-_RATIONALE_MAX = 2800
+# A Slack section's text field caps at 3000 chars. Rather than clip a long
+# rationale, split it across several section blocks at word/line boundaries.
+_SECTION_MAX = 2900
+
+
+def _chunk(text: str, size: int = _SECTION_MAX) -> list[str]:
+    """Split text into <= size pieces, breaking at the last newline/space."""
+    text = text or ""
+    chunks: list[str] = []
+    while len(text) > size:
+        cut = text.rfind("\n", 0, size)
+        if cut <= 0:
+            cut = text.rfind(" ", 0, size)
+        if cut <= 0:
+            cut = size
+        chunks.append(text[:cut].rstrip())
+        text = text[cut:].lstrip()
+    chunks.append(text)
+    return chunks
+
+
+def _text_sections(text: str) -> list[dict]:
+    """One or more section blocks holding the full text (no truncation)."""
+    return [_section(c) for c in _chunk(text)]
 
 
 def _section(text: str) -> dict:
@@ -56,15 +77,16 @@ def _disclaimer_block() -> dict:
     return {"type": "context", "elements": [{"type": "mrkdwn", "text": DISCLAIMER}]}
 
 
-def _recommendation_line(item: AnalyzedCandidate) -> str:
+def _recommendation_sections(item: AnalyzedCandidate) -> list[dict]:
     c = item.candidate
     rec = item.recommendation
     emoji = _ACTION_EMOJI.get(rec.action, "•")
     target = f" → *{rec.target_price:.2f}*" if rec.target_price is not None else ""
-    return (
+    head = (
         f"{emoji} *{c.symbol}* [{c.market}] *{_action_ko(rec.action.value)}* "
-        f"({rec.confidence:.0%}){target}\n{_truncate(rec.rationale, _RATIONALE_MAX)}"
+        f"({rec.confidence:.0%}){target}"
     )
+    return _text_sections(f"{head}\n{(rec.rationale or '').strip()}")
 
 
 def report_blocks(report: Report, min_confidence: float = 0.0) -> list[dict]:
@@ -83,21 +105,22 @@ def report_blocks(report: Report, min_confidence: float = 0.0) -> list[dict]:
     if not report.results:
         blocks.append(_section("_스크리닝을 통과한 종목이 없습니다._"))
     for item in report.results:
-        blocks.append(_section(_recommendation_line(item)))
+        blocks.extend(_recommendation_sections(item))
     blocks.append({"type": "divider"})
     blocks.append(_disclaimer_block())
     return blocks
 
 
-def _portfolio_line(item) -> str:
+def _portfolio_sections(item) -> list[dict]:
     p, a = item.position, item.advice
     emoji = _PORTFOLIO_EMOJI.get(a.action.value, "•")
     pl = f"  P&L *{p.pl_rate * 100:+.1f}%*" if p.pl_rate is not None else ""
     rationale = " ".join((a.rationale or "").split())
-    return (
+    head = (
         f"{emoji} *{p.symbol}* [{p.market}] *{_action_ko(a.action.value)}* "
-        f"({a.confidence:.0%}){pl}\n{_truncate(rationale, _RATIONALE_MAX)}"
+        f"({a.confidence:.0%}){pl}"
     )
+    return _text_sections(f"{head}\n{rationale}")
 
 
 def portfolio_blocks(report: PortfolioReport, min_confidence: float = 0.0) -> list[dict]:
@@ -114,7 +137,7 @@ def portfolio_blocks(report: PortfolioReport, min_confidence: float = 0.0) -> li
     if not shown:
         blocks.append(_section("_조회된 보유종목이 없습니다 (TOSS_ACCOUNT_SEQ 확인)._"))
     for item in shown:
-        blocks.append(_section(_portfolio_line(item)))
+        blocks.extend(_portfolio_sections(item))
     blocks.append({"type": "divider"})
     blocks.append(_disclaimer_block())
     return blocks

@@ -59,3 +59,20 @@ def test_build_notifiers_warns_when_slack_unconfigured(settings):
     settings.slack_channel = ""
     notifiers = build_notifiers(settings)
     assert not any(type(n).__name__ == "SlackNotifier" for n in notifiers)
+
+
+def test_post_message_splits_over_block_limit():
+    from tossai.slack.web_client import SlackClient
+
+    calls = []
+
+    class _FakeWeb:
+        def chat_postMessage(self, channel, blocks, text):
+            calls.append(blocks)
+
+    client = SlackClient("xoxb-x", web_client=_FakeWeb())
+    big = [{"type": "section", "text": {"type": "mrkdwn", "text": str(i)}} for i in range(100)]
+    assert client.post_message("C1", big, "t") is True
+    assert len(calls) == 3                       # 45 + 45 + 10
+    assert all(len(b) <= 45 for b in calls)
+    assert sum(len(b) for b in calls) == 100     # every block delivered

@@ -97,9 +97,13 @@ def test_rationale_shown_in_full():
     assert body in text and "…" not in text
 
 
-def test_truncate_only_past_slack_cap():
-    # Only an extreme rationale (beyond Slack's section limit) gets clipped.
+def test_long_rationale_splits_into_multiple_sections():
+    # Beyond a single Slack section's limit the rationale is split, not truncated.
     rep = _report()
-    rep.results[0].recommendation.rationale = "y" * 4000
-    text = "".join(str(b) for b in blocks.report_blocks(rep))
-    assert "…" in text
+    rep.results[0].recommendation.rationale = "y" * 6000
+    bs = blocks.report_blocks(rep)
+    text = "".join(str(b) for b in bs)
+    assert "…" not in text                 # split, not clipped
+    assert text.count("y" * 200) >= 1      # the body is preserved
+    section_count = sum(1 for b in bs if b.get("type") == "section")
+    assert section_count >= 3              # summary + >=2 rationale chunks
