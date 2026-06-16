@@ -19,7 +19,7 @@ def test_morning_briefing(settings, monkeypatch):
     bs = briefings.generate_morning_briefing(settings)
     text = "".join(str(b) for b in bs)
     assert "005930" in text
-    assert "Morning Briefing" in text
+    assert "모닝 브리핑" in text
     # analysis-only: no order instructions
     assert "place order" not in text.lower()
 

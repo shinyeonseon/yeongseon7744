@@ -38,22 +38,22 @@ def dispatch_command(name: str, payload: dict, settings: Settings) -> CommandRes
 
     if cmd == "recommend":
         return CommandResult(
-            ack_text="🟢 Running full analysis (screening + Claude)… results will post here shortly.",
+            ack_text="🟢 전체 분석 실행 중(스크리닝 + Claude)… 잠시 후 결과를 여기에 올립니다.",
             deferred_kind="recommend", args=args,
         )
 
     if cmd == "screen":
         return CommandResult(
-            ack_text="🔎 Screening the universe… results shortly.",
+            ack_text="🔎 유니버스 스크리닝 중… 잠시 후 결과를 올립니다.",
             deferred_kind="screen", args=args,
         )
 
     if cmd == "briefing":
         return CommandResult(
-            ack_text="🌅 Building the briefing… posting shortly.",
+            ack_text="🌅 브리핑 작성 중… 잠시 후 게시합니다.",
             deferred_kind="briefing", args=args,
         )
 
     return CommandResult(
-        inline_blocks=blocks.error_blocks(f"Unknown command `/{cmd}`. Try `/help`.")
+        inline_blocks=blocks.error_blocks(f"알 수 없는 명령 `/{cmd}`. `/help`를 입력해 보세요.")
     )

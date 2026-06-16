@@ -42,7 +42,7 @@ def test_report_blocks_empty():
     rep = Report(market="US", market_open=False, universe_size=0, screened_count=0)
     bs = blocks.report_blocks(rep)
     text = "".join(str(b) for b in bs)
-    assert "No candidates" in text
+    assert "통과한 종목이 없습니다" in text
     assert _has_disclaimer(bs)
 
 
@@ -57,7 +57,7 @@ def test_morning_briefing_vix_bands():
     cands = [Candidate(symbol="005930", market="KRX", price=70000.0, score=0.7)]
     bs = blocks.morning_briefing_blocks("KRX", True, 35.0, 30.0, cands, "2026-06-15")
     text = "".join(str(b) for b in bs)
-    assert "stressed" in text  # vix above threshold
+    assert "불안정" in text  # vix above threshold
     assert "005930" in text
 
 
@@ -66,7 +66,7 @@ def test_weekly_briefing():
         "2026-06-15", 5, {"BUY": 3, "HOLD": 2}, [("005930", 4)], 0.72, 18.0, 30.0
     )
     text = "".join(str(b) for b in bs)
-    assert "005930" in text and "calm" in text
+    assert "005930" in text and "안정" in text
 
 
 def test_risk_alert_blocks_no_action_words():

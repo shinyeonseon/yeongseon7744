@@ -22,6 +22,17 @@ _ACTION_EMOJI = {
 # Portfolio advice actions (ADD/HOLD/TRIM/SELL) keyed by their string value.
 _PORTFOLIO_EMOJI = {"ADD": "🟢", "HOLD": "⚪", "TRIM": "🟠", "SELL": "🔴", "ANALYSIS_FAILED": "⚠️"}
 
+# Korean labels for action codes (shown alongside the code in Slack messages).
+_ACTION_KO = {
+    "BUY": "매수", "SELL": "매도", "HOLD": "보유",
+    "ADD": "추가매수", "TRIM": "축소", "ANALYSIS_FAILED": "분석실패",
+}
+
+
+def _action_ko(value: str) -> str:
+    ko = _ACTION_KO.get(value)
+    return f"{ko}({value})" if ko else value
+
 
 def _truncate(text: str, n: int = 280) -> str:
     text = text or ""
@@ -46,7 +57,7 @@ def _recommendation_line(item: AnalyzedCandidate) -> str:
     emoji = _ACTION_EMOJI.get(rec.action, "•")
     target = f" → *{rec.target_price:.2f}*" if rec.target_price is not None else ""
     return (
-        f"{emoji} *{c.symbol}* [{c.market}] *{rec.action.value}* "
+        f"{emoji} *{c.symbol}* [{c.market}] *{_action_ko(rec.action.value)}* "
         f"({rec.confidence:.0%}){target}\n_{_truncate(rec.rationale, 220)}_"
     )
 
@@ -56,16 +67,16 @@ def report_blocks(report: Report, min_confidence: float = 0.0) -> list[dict]:
     count (BUY/SELL ≥ confidence) is summarized at the top."""
     actionable = report.actionable(min_confidence)
     blocks: list[dict] = [
-        _header("📈 Toss AI — Recommendations"),
+        _header("📈 Toss AI — 추천 시그널"),
         _section(
-            f"*{report.generated_at:%Y-%m-%d %H:%M UTC}*  ·  market `{report.market}` "
-            f"(open={report.market_open})\n"
-            f"universe *{report.universe_size}*  ·  screened *{report.screened_count}*  ·  "
-            f"actionable *{len(actionable)}*  ·  ~${report.estimated_cost_usd:.4f}"
+            f"*{report.generated_at:%Y-%m-%d %H:%M UTC}*  ·  시장 `{report.market}` "
+            f"(개장={report.market_open})\n"
+            f"유니버스 *{report.universe_size}*  ·  스크리닝 *{report.screened_count}*  ·  "
+            f"실행대상 *{len(actionable)}*  ·  ~${report.estimated_cost_usd:.4f}"
         ),
     ]
     if not report.results:
-        blocks.append(_section("_No candidates passed screening._"))
+        blocks.append(_section("_스크리닝을 통과한 종목이 없습니다._"))
     for item in report.results:
         blocks.append(_section(_recommendation_line(item)))
     blocks.append({"type": "divider"})
@@ -79,7 +90,7 @@ def _portfolio_line(item) -> str:
     pl = f"  P&L *{p.pl_rate * 100:+.1f}%*" if p.pl_rate is not None else ""
     rationale = " ".join((a.rationale or "").split())
     return (
-        f"{emoji} *{p.symbol}* [{p.market}] *{a.action.value}* "
+        f"{emoji} *{p.symbol}* [{p.market}] *{_action_ko(a.action.value)}* "
         f"({a.confidence:.0%}){pl}\n_{_truncate(rationale, 220)}_"
     )
 
@@ -91,12 +102,12 @@ def portfolio_blocks(report: PortfolioReport, min_confidence: float = 0.0) -> li
         _header("💼 보유 포트폴리오 조언"),
         _section(
             f"*{report.generated_at:%Y-%m-%d %H:%M UTC}*  ·  "
-            f"positions *{report.positions_count}*  ·  ~${report.estimated_cost_usd:.4f}"
+            f"보유종목 *{report.positions_count}*  ·  ~${report.estimated_cost_usd:.4f}"
         ),
     ]
     shown = [r for r in report.results if r.advice.confidence >= min_confidence]
     if not shown:
-        blocks.append(_section("_No positions to report (check TOSS_ACCOUNT_SEQ)._"))
+        blocks.append(_section("_조회된 보유종목이 없습니다 (TOSS_ACCOUNT_SEQ 확인)._"))
     for item in shown:
         blocks.append(_section(_portfolio_line(item)))
     blocks.append({"type": "divider"})
@@ -105,12 +116,12 @@ def portfolio_blocks(report: PortfolioReport, min_confidence: float = 0.0) -> li
 
 
 def screen_blocks(candidates: list[Candidate]) -> list[dict]:
-    blocks: list[dict] = [_header("🔎 Toss AI — Screening")]
+    blocks: list[dict] = [_header("🔎 Toss AI — 스크리닝")]
     if not candidates:
-        blocks.append(_section("_No candidates passed screening._"))
+        blocks.append(_section("_스크리닝을 통과한 종목이 없습니다._"))
     else:
         lines = [
-            f"• *{c.symbol}* [{c.market}]  score *{c.score:.3f}*  price {c.price}"
+            f"• *{c.symbol}* [{c.market}]  점수 *{c.score:.3f}*  가격 {c.price}"
             for c in candidates
         ]
         blocks.append(_section("\n".join(lines)))
@@ -128,17 +139,17 @@ def morning_briefing_blocks(
 ) -> list[dict]:
     vix_text = _vix_phrase(vix, vix_threshold)
     blocks: list[dict] = [
-        _header("🌅 Morning Briefing"),
-        _section(f"*{date_label}*  ·  market `{market_label}` (open={market_open})\n{vix_text}"),
+        _header("🌅 모닝 브리핑"),
+        _section(f"*{date_label}*  ·  시장 `{market_label}` (개장={market_open})\n{vix_text}"),
     ]
     if candidates:
         lines = [
-            f"• *{c.symbol}* [{c.market}]  score *{c.score:.3f}*  price {c.price}"
+            f"• *{c.symbol}* [{c.market}]  점수 *{c.score:.3f}*  가격 {c.price}"
             for c in candidates[:10]
         ]
-        blocks.append(_section("*Today's screened watchlist*\n" + "\n".join(lines)))
+        blocks.append(_section("*오늘의 스크리닝 관심종목*\n" + "\n".join(lines)))
     else:
-        blocks.append(_section("_Nothing notable passed screening today._"))
+        blocks.append(_section("_오늘은 주목할 만한 종목이 없습니다._"))
     blocks.append(_disclaimer_block())
     return blocks
 
@@ -152,16 +163,16 @@ def weekly_briefing_blocks(
     vix: float | None,
     vix_threshold: float,
 ) -> list[dict]:
-    counts = "  ·  ".join(f"{k} *{v}*" for k, v in action_counts.items()) or "no signals"
+    counts = "  ·  ".join(f"{k} *{v}*" for k, v in action_counts.items()) or "시그널 없음"
     top = ", ".join(f"{s} ({n})" for s, n in top_symbols) or "—"
     conf = f"{avg_confidence:.0%}" if avg_confidence is not None else "—"
     blocks = [
-        _header("🗓️ Weekly Briefing"),
+        _header("🗓️ 주간 브리핑"),
         _section(
-            f"*{date_label}*  ·  universe *{universe_size}*\n"
-            f"Signals this week: {counts}\n"
-            f"Most-screened: {top}\n"
-            f"Avg confidence: *{conf}*\n{_vix_phrase(vix, vix_threshold)}"
+            f"*{date_label}*  ·  유니버스 *{universe_size}*\n"
+            f"이번 주 시그널: {counts}\n"
+            f"최다 스크리닝: {top}\n"
+            f"평균 확신도: *{conf}*\n{_vix_phrase(vix, vix_threshold)}"
         ),
         _disclaimer_block(),
     ]
@@ -172,7 +183,7 @@ def risk_alert_blocks(alert: RiskAlert) -> list[dict]:
     icon = {"critical": "🚨", "warning": "⚠️", "info": "ℹ️"}.get(alert.severity.value, "⚠️")
     sym = f" · *{alert.symbol}*" if alert.symbol else ""
     return [
-        _header(f"{icon} Risk Alert — {alert.kind.value}"),
+        _header(f"{icon} 리스크 경보 — {alert.kind.value}"),
         _section(f"{alert.message}{sym}"),
         _disclaimer_block(),
     ]
@@ -180,18 +191,18 @@ def risk_alert_blocks(alert: RiskAlert) -> list[dict]:
 
 def status_blocks(summary: dict[str, object]) -> list[dict]:
     lines = [f"• `{k}`: {v}" for k, v in summary.items()]
-    return [_header("⚙️ Status"), _section("\n".join(lines))]
+    return [_header("⚙️ 상태"), _section("\n".join(lines))]
 
 
 def help_blocks() -> list[dict]:
     return [
-        _header("🤖 Toss AI — Commands"),
+        _header("🤖 Toss AI — 명령어"),
         _section(
-            "*/recommend* — run full analysis (screening + Claude) and post signals\n"
-            "*/screen* — screening only (free, no Claude)\n"
-            "*/briefing* — post the morning briefing now\n"
-            "*/status* — show configuration/health\n"
-            "*/help* — this message"
+            "*/recommend* — 전체 분석 실행(스크리닝 + Claude) 후 시그널 게시\n"
+            "*/screen* — 스크리닝만(무료, Claude 미사용)\n"
+            "*/briefing* — 모닝 브리핑 지금 게시\n"
+            "*/status* — 설정/상태 표시\n"
+            "*/help* — 이 도움말"
         ),
         _disclaimer_block(),
     ]
@@ -203,11 +214,11 @@ def error_blocks(message: str) -> list[dict]:
 
 def _vix_phrase(vix: float | None, threshold: float) -> str:
     if vix is None:
-        return "VIX: _unavailable_"
+        return "VIX: _조회 불가_"
     if vix >= threshold:
-        band = "🚨 stressed"
+        band = "🚨 불안정"
     elif vix >= threshold * 0.66:
-        band = "⚠️ elevated"
+        band = "⚠️ 상승"
     else:
-        band = "🟢 calm"
-    return f"VIX: *{vix:.2f}* ({band}, threshold {threshold:.0f})"
+        band = "🟢 안정"
+    return f"VIX: *{vix:.2f}* ({band}, 기준 {threshold:.0f})"

@@ -104,6 +104,6 @@ class AnalyzedPosition(BaseModel):
 
 
 DISCLAIMER = (
-    "This output is automated analysis for informational purposes only and is "
-    "NOT financial advice. No orders are placed. Markets carry risk of loss."
+    "본 결과는 정보 제공용 자동 분석이며 투자 자문이 아닙니다. "
+    "주문은 실행되지 않습니다. 투자에는 원금 손실 위험이 있습니다."
 )

@@ -30,6 +30,8 @@ SYSTEM_PROMPT = (
     "- Signal keys are namespaced by strategy (e.g. 'graham.per', "
     "'buffett_quality.roe', 'magic_formula.earnings_yield'). Fundamental data may "
     "be absent for some markets/symbols; if so, simply rely on what is present.\n"
+    "- Write `rationale` and every item in `risks` in natural Korean (한국어). "
+    "Keep ticker symbols and numbers as-is.\n"
     "- You MUST respond by calling the submit_recommendation tool exactly once."
 )
 

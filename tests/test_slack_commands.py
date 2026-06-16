@@ -38,7 +38,7 @@ def test_screen_and_briefing_deferred(settings):
 def test_unknown_command(settings):
     r = dispatch_command("/nope", {}, settings)
     assert r.inline_blocks is not None
-    assert "Unknown command" in "".join(str(b) for b in r.inline_blocks)
+    assert "알 수 없는 명령" in "".join(str(b) for b in r.inline_blocks)
 
 
 def test_args_parsed(settings):

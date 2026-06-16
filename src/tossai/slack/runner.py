@@ -42,7 +42,7 @@ def execute_kind(settings: Settings, kind: str, args: list[str] | None = None) -
 
         return generate_morning_briefing(settings)
 
-    return blocks.error_blocks(f"Unknown work kind: {kind}")
+    return blocks.error_blocks(f"알 수 없는 작업 종류: {kind}")
 
 
 def run_and_respond(

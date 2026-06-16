@@ -75,7 +75,7 @@ def create_app(settings: Settings, slack_client: SlackClient | None = None) -> F
             task.add_done_callback(app.state.tasks.discard)
 
         return JSONResponse(
-            {"response_type": "ephemeral", "text": result.ack_text or "Working…"}
+            {"response_type": "ephemeral", "text": result.ack_text or "처리 중…"}
         )
 
     return app

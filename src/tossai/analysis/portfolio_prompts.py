@@ -23,6 +23,8 @@ SYSTEM_PROMPT = (
     "- Beware anchoring: a large gain is not automatically SELL, a loss is not "
     "automatically ADD. Judge forward prospects from the signals.\n"
     "- Always state concrete risks; set confidence honestly.\n"
+    "- Write `rationale` and every item in `risks` in natural Korean (한국어). "
+    "Keep ticker symbols and numbers as-is.\n"
     "- You MUST respond by calling submit_position_advice exactly once."
 )
 
