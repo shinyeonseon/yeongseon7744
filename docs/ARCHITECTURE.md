@@ -121,6 +121,13 @@ VIX 위험국면이면 공격적(long) 전략 점수를 `regime_riskoff_weight`�
 
 명령: `python -m tossai backtest --years 3 [--top N] [--trend-ma 100] [--vol-target 0.2]`
 
+### 추천 성과 추적 (`performance/`)
+`run-once`가 매번 추천을 `reports/recommendations.jsonl` 원장에 기록 → `track` 명령이
+이후 가격으로 **방향조정 전방수익**(BUY=+수익, SELL=−수익)을 채점. 적중률·평균수익을
+기간별(5/21/63일)·액션별로 집계하고, **확신도가 실제로 유의미한지**(≥0.7 vs <0.7) 비교.
+기존 저장 리포트에서 자동 백필. 외부 데이터 불필요(이미 받는 캔들 사용).
+명령: `python -m tossai track [--horizons 5,21,63] [--min-confidence 0.6]`
+
 ---
 
 ## 7. 패키지 구조
@@ -136,6 +143,7 @@ src/tossai/
 ├── context/          거시·뉴스·실적 provider (lazy, fail-soft)
 ├── analysis/         claude_engine · prompts · portfolio_prompts
 ├── portfolio/        analyzer (보유종목 분석)
+├── performance/      추천 성과 추적: ledger(원장) · tracker(전방수익 채점)
 ├── backtest/         engine(워크포워드+리스크관리) · metrics
 ├── risk/             sentiment(VIX) · evaluators(블랙스완/갭다운) · models
 ├── output/           report · portfolio_report · alerts(콘솔/슬랙/웹훅/메일)

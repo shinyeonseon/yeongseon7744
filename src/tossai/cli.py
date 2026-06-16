@@ -206,6 +206,42 @@ def backtest(
     typer.echo(result.summary())
 
 
+@app.command()
+def track(
+    horizons: str = typer.Option("5,21,63", "--horizons", help="Forward trading-day horizons."),
+    primary: int = typer.Option(21, "--primary", help="Horizon used for per-action/confidence stats."),
+    min_confidence: float = typer.Option(
+        0.0, "--min-confidence", help="Only score recommendations at/above this confidence."),
+) -> None:
+    """Score past recommendations against later prices (did they add alpha?)."""
+    settings = _boot()
+    from tossai.performance import ledger, tracker
+    from tossai.toss.client import TossClient
+
+    seeded = ledger.backfill_from_reports(settings.reports_dir)
+    if seeded:
+        log.info("ledger backfilled %d records from saved reports", seeded)
+    records = ledger.load_ledger(settings.reports_dir)
+    if not records:
+        typer.echo("No recommendations logged yet (run `run-once` a few times first).")
+        return
+
+    hs = tuple(int(x) for x in horizons.split(",") if x.strip())
+    need = max(hs) + 5
+    symbols = sorted({r.symbol for r in records})
+    candle_map: dict = {}
+    with TossClient(settings) as client:
+        for sym in symbols:
+            try:
+                candle_map[sym] = client.get_candles(sym, count=settings.resolved_candle_count(need))
+            except Exception as exc:
+                log.warning("track candle fetch failed for %s: %s", sym, exc)
+
+    summary = tracker.evaluate(records, candle_map, horizons=hs,
+                               primary_horizon=primary, min_confidence=min_confidence)
+    typer.echo(tracker.summary_table(summary))
+
+
 @app.command("run-loop")
 def run_loop(
     deep: bool = typer.Option(False, "--deep", help="Use the deeper Claude model."),

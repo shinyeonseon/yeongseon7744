@@ -96,6 +96,13 @@ class Orchestrator:
             macro=(macro.as_line() if macro and not macro.is_empty() else ""),
         )
         save_report(report, self.s.reports_dir)
+        # Append this run's recommendations to the performance ledger (for `track`).
+        try:
+            from tossai.performance.ledger import append_report
+
+            append_report(report, self.s.reports_dir)
+        except Exception as exc:
+            log.debug("ledger append failed: %s", exc)
 
         # Suppress external pushes when the market is closed unless forced.
         if market_open or force:
