@@ -69,7 +69,7 @@ def create_app(settings: Settings, slack_client: SlackClient | None = None) -> F
         # Deferred: schedule heavy work, ack immediately.
         if result.deferred_kind and response_url:
             task = asyncio.create_task(
-                _run_deferred(app, response_url, result.deferred_kind, result.args)
+                _run_deferred(app, response_url, result.deferred_kind, result.args, result.meta)
             )
             app.state.tasks.add(task)
             task.add_done_callback(app.state.tasks.discard)
@@ -81,9 +81,11 @@ def create_app(settings: Settings, slack_client: SlackClient | None = None) -> F
     return app
 
 
-async def _run_deferred(app: FastAPI, response_url: str, kind: str, args: list[str]) -> None:
+async def _run_deferred(
+    app: FastAPI, response_url: str, kind: str, args: list[str], meta: dict | None = None,
+) -> None:
     settings: Settings = app.state.settings
     async with app.state.semaphore:
         await asyncio.to_thread(
-            runner.run_and_respond, settings, app.state.slack, response_url, kind, args
+            runner.run_and_respond, settings, app.state.slack, response_url, kind, args, meta
         )

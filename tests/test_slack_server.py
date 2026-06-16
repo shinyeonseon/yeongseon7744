@@ -68,7 +68,7 @@ def test_recommend_defers(settings, monkeypatch):
     # Make deferred work a no-op so the test doesn't hit the network.
     called = {}
 
-    def fake_run_and_respond(s, client, url, kind, args):
+    def fake_run_and_respond(s, client, url, kind, args, meta=None):
         called["kind"] = kind
 
     monkeypatch.setattr(server_mod.runner, "run_and_respond", fake_run_and_respond)

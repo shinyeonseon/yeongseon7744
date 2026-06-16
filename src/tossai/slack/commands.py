@@ -13,7 +13,7 @@ from tossai.config import Settings
 from tossai.slack import blocks
 
 # Deferred kinds the runner knows how to execute.
-DEFERRED_KINDS = {"recommend", "screen", "briefing"}
+DEFERRED_KINDS = {"recommend", "screen", "briefing", "advisor"}
 
 
 @dataclass
@@ -24,6 +24,7 @@ class CommandResult:
     deferred_kind: str | None = None
     response_type: str = "ephemeral"
     args: list[str] = field(default_factory=list)
+    meta: dict = field(default_factory=dict)
 
 
 def dispatch_command(name: str, payload: dict, settings: Settings) -> CommandResult:
@@ -52,6 +53,22 @@ def dispatch_command(name: str, payload: dict, settings: Settings) -> CommandRes
         return CommandResult(
             ack_text="🌅 브리핑 작성 중… 잠시 후 게시합니다.",
             deferred_kind="briefing", args=args,
+        )
+
+    if cmd in ("박부장", "ask", "advisor"):
+        text = (payload.get("text") or "").strip()
+        if not text:
+            return CommandResult(
+                inline_blocks=blocks.error_blocks("질문을 함께 적어주세요. 예: `/박부장 내 포트폴리오 어때?`")
+            )
+        return CommandResult(
+            ack_text="🧑‍💼 박부장이 데이터를 보는 중…",
+            deferred_kind="advisor", args=args,
+            meta={
+                "text": text,
+                "channel_id": payload.get("channel_id", ""),
+                "user_id": payload.get("user_id", ""),
+            },
         )
 
     return CommandResult(

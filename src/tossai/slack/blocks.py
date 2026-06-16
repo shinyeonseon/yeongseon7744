@@ -296,6 +296,7 @@ def help_blocks() -> list[dict]:
     return [
         _header("🤖 Toss AI — 명령어"),
         _section(
+            "*/박부장* `질문` — AI 투자부장과 대화(내 보유·후보·성과 기반)\n"
             "*/recommend* — 전체 분석 실행(스크리닝 + Claude) 후 시그널 게시\n"
             "*/screen* — 스크리닝만(무료, Claude 미사용)\n"
             "*/briefing* — 모닝 브리핑 지금 게시\n"
@@ -304,6 +305,10 @@ def help_blocks() -> list[dict]:
         ),
         _disclaimer_block(),
     ]
+
+
+def advisor_blocks(text: str) -> list[dict]:
+    return [_header("🧑‍💼 박부장"), _section(_truncate(text, 2900)), _disclaimer_block()]
 
 
 def error_blocks(message: str) -> list[dict]:

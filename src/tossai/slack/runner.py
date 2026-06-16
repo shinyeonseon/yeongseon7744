@@ -16,9 +16,33 @@ from tossai.slack.web_client import SlackClient
 
 log = get_logger(__name__)
 
+# Per-(channel, user) conversation memory for 박부장, for the serve process lifetime.
+_CONV = None
 
-def execute_kind(settings: Settings, kind: str, args: list[str] | None = None) -> list[dict]:
+
+def _conversation_store():
+    global _CONV
+    if _CONV is None:
+        from tossai.agent.advisor import ConversationStore
+        _CONV = ConversationStore()
+    return _CONV
+
+
+def execute_kind(
+    settings: Settings, kind: str, args: list[str] | None = None, meta: dict | None = None,
+) -> list[dict]:
     """Run the work for a deferred command kind and return Slack blocks."""
+    if kind == "advisor":
+        from tossai.agent.advisor import Advisor
+
+        meta = meta or {}
+        question = meta.get("text") or " ".join(args or [])
+        key = f"{meta.get('channel_id', '')}:{meta.get('user_id', '')}"
+        store = _conversation_store()
+        text, history = Advisor(settings).answer(question, store.get(key))
+        store.set(key, history)
+        return blocks.advisor_blocks(text)
+
     if kind == "screen":
         from tossai.pipeline.orchestrator import Orchestrator
         from tossai.toss.client import TossClient
@@ -47,14 +71,14 @@ def execute_kind(settings: Settings, kind: str, args: list[str] | None = None) -
 
 def run_and_respond(
     settings: Settings, slack_client: SlackClient, response_url: str,
-    kind: str, args: list[str] | None = None,
+    kind: str, args: list[str] | None = None, meta: dict | None = None,
 ) -> None:
     """Execute a deferred command and post the result to response_url.
 
     Never raises: failures are reported back to the user as an error message.
     """
     try:
-        result_blocks = execute_kind(settings, kind, args)
+        result_blocks = execute_kind(settings, kind, args, meta)
     except Exception as exc:  # noqa: BLE001 - report any failure to the user
         log.exception("deferred %s failed: %s", kind, exc)
         result_blocks = blocks.error_blocks(f"`/{kind}` failed: {exc}")

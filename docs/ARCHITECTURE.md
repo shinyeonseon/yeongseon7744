@@ -131,13 +131,19 @@ VIX 위험국면이면 공격적(long) 전략 점수를 `regime_riskoff_weight`�
 **포트폴리오 조언 백테스트**도 같은 채점기로: `track --portfolio` → 보유 조언(ADD=강세,
 TRIM/SELL=약세, HOLD 제외)을 `portfolio_*.json`에서 백필해 사후 검증.
 
+### 박부장 — 대화형 에이전트 (`agent/`)
+내 보유·후보·성과·시세를 **도구(tool-use)로 직접 조회**해 한글로 답하는 Claude 에이전트(분석 전용).
+CLI `ask`(REPL) 또는 Slack `/박부장`. Slack은 serve 프로세스 내 (채널,사용자)별 대화 메모리로
+연속 질문의 맥락을 잇습니다. 도구: `read_portfolio` · `read_recommendations` · `performance` · `quote`.
+
 ---
 
 ## 7. 패키지 구조
 
 ```
 src/tossai/
-├── cli.py            명령어: doctor / screen-only / run-once / run-loop / portfolio / backtest / serve
+├── cli.py            명령어: doctor / screen-only / run-once / run-loop / portfolio / daily / track / ask / backtest / serve
+├── agent/            박부장 대화형 에이전트: advisor(페르소나+tool-use 루프+대화메모리) · tools(읽기전용 도구)
 ├── config.py         pydantic-settings (.env). 비밀은 redacted_summary로만 로깅
 ├── models.py         Candidate / Position / Recommendation / PositionAdvice / DISCLAIMER
 ├── toss/             토스 API: auth(OAuth) · client(캔들/계좌/보유, 페이징·429 백오프) · schemas

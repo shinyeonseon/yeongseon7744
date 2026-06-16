@@ -141,6 +141,27 @@ Slack 중복 발송은 없습니다(조언 푸시는 5번 또는 수동 `portfol
 ./.venv/bin/python -m tossai track --portfolio  # 보유 조언(ADD/TRIM/SELL) 사후 검증
 ```
 
+## 7) 박부장 — 대화형 AI 투자부장 (선택)
+
+내 **보유 종목·후보·성과·시세**를 도구로 직접 조회해 자연어로 답하는 대화형 에이전트입니다
+(분석 전용, 주문 없음). 두 가지로 쓸 수 있습니다.
+
+**CLI(바로 사용, Slack 불필요):**
+```bash
+./.venv/bin/python -m tossai ask "내 포트폴리오 어때?"   # 단발 질문
+./.venv/bin/python -m tossai ask                          # 대화형(REPL)
+```
+
+**Slack `/박부장`:** `serve` 서버가 떠 있어야 하고(4·5번의 `SLACK_ENABLED=true`),
+Slack 앱 설정 > **Slash Commands**에 커맨드를 등록해야 합니다:
+- Command: `/박부장` (원하면 `/ask`도 추가) · Request URL: `https://<도메인>/slack/commands`
+등록 후 채널에서 `/박부장 엔비디아 지금 들어가도 돼?` 처럼 사용. 같은 채널·사용자의
+연속 질문은 serve 프로세스가 떠 있는 동안 **맥락이 이어집니다**(메모리 1시간/최근 12턴).
+
+> 호출당 Claude 비용이 듭니다(도구 사용으로 보통 2~4회 호출). 분석 전용이라 매매는 절대 실행되지 않습니다.
+
+---
+
 ### 홈 디렉터리 배포(systemd 안 쓰고 cron으로)
 
 `/opt/tossai` 시스템 설치 대신 `~/tossai`에서 직접 운영한다면, systemd 유닛의 경로

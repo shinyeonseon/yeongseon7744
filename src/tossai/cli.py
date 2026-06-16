@@ -296,6 +296,34 @@ def daily(
 
 
 @app.command()
+def ask(
+    question: list[str] = typer.Argument(
+        None, help="Question for 박부장. Omit to start an interactive chat."),
+) -> None:
+    """Chat with 박부장 — the AI investment-desk persona over your own data."""
+    settings = _boot()
+    from tossai.agent.advisor import Advisor
+
+    advisor = Advisor(settings)
+    if question:
+        text, _ = advisor.answer(" ".join(question))
+        typer.echo(text)
+        return
+
+    typer.echo("박부장과 대화를 시작합니다. (종료: 빈 줄 또는 Ctrl-D)\n")
+    history: list[dict] = []
+    while True:
+        try:
+            msg = input("나> ").strip()
+        except EOFError:
+            break
+        if not msg:
+            break
+        text, history = advisor.answer(msg, history)
+        typer.echo(f"\n박부장> {text}\n")
+
+
+@app.command()
 def risk(
     no_slack: bool = typer.Option(False, "--no-slack", help="Console only; don't push to Slack."),
 ) -> None:
