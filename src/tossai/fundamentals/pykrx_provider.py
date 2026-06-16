@@ -34,7 +34,8 @@ def _quiet():
 class PykrxProvider:
     def get(self, symbol: str, market: str) -> Fundamentals | None:
         try:
-            from pykrx import stock
+            with _quiet():  # pykrx prints a KRX-login warning on import w/o creds
+                from pykrx import stock
         except ImportError:
             log.debug("pykrx not installed; KRX fundamentals unavailable")
             return None
