@@ -1,0 +1,19 @@
+# Oneshot unit: once-a-weekday bookkeeping pass — refreshes portfolio advice and
+# logs a performance snapshot, feeding both backtest ledgers. Independent of the
+# Slack server (tossai-serve), so the `track` history accumulates either way.
+[Unit]
+Description=Toss investment AI — daily performance bookkeeping (portfolio advice + ledger)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/tossai
+EnvironmentFile=/etc/tossai/.env
+# --no-slack: this pass exists to feed the ledger; serve/manual handles Slack advice.
+ExecStart=/opt/tossai/.venv/bin/python -m tossai daily --no-slack
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

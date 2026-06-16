@@ -81,8 +81,8 @@ cd /opt/tossai
 
 ```bash
 sudo systemctl enable --now tossai.timer
-systemctl status tossai.timer --no-pager
-systemctl list-timers tossai.timer --no-pager
+sudo systemctl enable --now tossai-daily.timer   # 성과 추적용 일일 적재 (아래 6 참고)
+systemctl list-timers 'tossai*' --no-pager       # 두 타이머가 보이면 OK
 # 첫 실행 로그 (장중이면 분석, 장외면 알림 억제):
 journalctl -u tossai.service -n 60 --no-pager
 ls -t /opt/tossai/reports | head    # JSON 리포트가 쌓이는지
@@ -116,6 +116,30 @@ PORTFOLIO_SCHEDULE_ENABLED=true
 PORTFOLIO_SCHEDULE_TIME=15:40   # 시장 tz 기준 HH:MM (평일 장마감 후)
 ```
 → `sudo systemctl restart tossai-serve`. (Claude 비용이 들므로 기본 off, 옵트인입니다.)
+
+## 6) 성과 추적 자동 적재 — `tossai-daily.timer`
+
+추천(`track`)·포트폴리오 조언(`track --portfolio`) 백테스트는 **매일 데이터가 쌓여야** 의미가
+생깁니다. 추천 원장은 30분 타이머(`run-once`)가 알아서 채우지만, **포트폴리오 조언 원장은
+`serve` 스케줄러(5번)나 수동 실행에만 의존**합니다. 이 비대칭을 없애려고 `daily` 타이머가
+평일 1회(미 장마감 후, 기본 22:00 UTC) **포트폴리오 조언을 갱신하고 두 원장의 성과 스냅샷을
+로그에 남깁니다.** `setup.sh`가 자동 설치/활성화합니다.
+
+```bash
+systemctl list-timers tossai-daily.timer --no-pager
+journalctl -u tossai-daily.service -n 40 --no-pager   # 성과 스냅샷 확인
+sudo systemctl start tossai-daily.service              # 지금 1회 즉시 실행(테스트)
+```
+
+시간 변경: `sudo systemctl edit tossai-daily.timer`로 `OnCalendar` 조정(유니버스 tz에 맞게).
+`daily`는 Claude 비용이 드는 포트폴리오 분석을 1회 돌립니다(평일 1회). `--no-slack`이 기본이라
+Slack 중복 발송은 없습니다(조언 푸시는 5번 또는 수동 `portfolio`가 담당).
+
+성과 확인(언제든 수동):
+```bash
+./.venv/bin/python -m tossai track              # 추천 시그널 사후 검증
+./.venv/bin/python -m tossai track --portfolio  # 보유 조언(ADD/TRIM/SELL) 사후 검증
+```
 
 ---
 

@@ -217,38 +217,82 @@ def track(
 ) -> None:
     """Score past recommendations against later prices (did they add alpha?)."""
     settings = _boot()
-    from tossai.performance import ledger, tracker
     from tossai.toss.client import TossClient
 
-    if portfolio:
-        seeded = ledger.backfill_from_portfolio_reports(settings.reports_dir)
-        records = ledger.load_ledger(settings.reports_dir, ledger.PORTFOLIO_LEDGER_NAME)
-        empty_msg = "No portfolio advice logged yet (run `portfolio` a few times first)."
-    else:
-        seeded = ledger.backfill_from_reports(settings.reports_dir)
-        records = ledger.load_ledger(settings.reports_dir)
-        empty_msg = "No recommendations logged yet (run `run-once` a few times first)."
-    if seeded:
-        log.info("ledger backfilled %d records from saved reports", seeded)
-    if not records:
-        typer.echo(empty_msg)
-        return
-
     hs = tuple(int(x) for x in horizons.split(",") if x.strip())
-    need = max(hs) + 5
-    symbols = sorted({r.symbol for r in records})
-    candle_map: dict = {}
     with TossClient(settings) as client:
-        for sym in symbols:
-            try:
-                candle_map[sym] = client.get_candles(sym, count=settings.resolved_candle_count(need))
-            except Exception as exc:
-                log.warning("track candle fetch failed for %s: %s", sym, exc)
+        typer.echo(_perf_snapshot(settings, client, portfolio=portfolio, horizons=hs,
+                                  primary=primary, min_confidence=min_confidence))
 
-    summary = tracker.evaluate(records, candle_map, horizons=hs,
+
+def _perf_snapshot(settings, client, *, portfolio: bool,
+                   horizons: tuple[int, ...] = (5, 21, 63),
+                   primary: int = 21, min_confidence: float = 0.0) -> str:
+    """Backfill + score one ledger (picks or portfolio advice) and format the table."""
+    from tossai.performance import ledger, tracker
+
+    if portfolio:
+        ledger.backfill_from_portfolio_reports(settings.reports_dir)
+        records = ledger.load_ledger(settings.reports_dir, ledger.PORTFOLIO_LEDGER_NAME)
+        title = "Portfolio advice performance"
+        empty = "No portfolio advice logged yet (run `portfolio`/`daily` a few times first)."
+    else:
+        ledger.backfill_from_reports(settings.reports_dir)
+        records = ledger.load_ledger(settings.reports_dir)
+        title = "Recommendation performance"
+        empty = "No recommendations logged yet (run `run-once` a few times first)."
+    if not records:
+        return empty
+
+    need = max(horizons) + 5
+    candle_map: dict = {}
+    for sym in sorted({r.symbol for r in records}):
+        try:
+            candle_map[sym] = client.get_candles(sym, count=settings.resolved_candle_count(need))
+        except Exception as exc:
+            log.warning("perf candle fetch failed for %s: %s", sym, exc)
+    summary = tracker.evaluate(records, candle_map, horizons=horizons,
                                primary_horizon=primary, min_confidence=min_confidence)
-    title = "Portfolio advice performance" if portfolio else "Recommendation performance"
-    typer.echo(tracker.summary_table(summary, title))
+    return tracker.summary_table(summary, title)
+
+
+@app.command()
+def daily(
+    deep: bool = typer.Option(False, "--deep", help="Use the deeper Claude model."),
+    slack: bool = typer.Option(
+        False, "--slack/--no-slack", help="Also post portfolio advice to Slack."),
+    picks: bool = typer.Option(
+        False, "--picks", help="Also run a fresh recommendation pass (else left to the 30-min timer)."),
+) -> None:
+    """Daily bookkeeping: refresh portfolio advice + log a performance snapshot for both ledgers.
+
+    Feeds the backtest ledgers so `track` accumulates without the Slack server running.
+    Intended for a once-a-weekday cron/systemd timer (after market close).
+    """
+    settings = _boot()
+    from tossai.analysis.claude_engine import ClaudeEngine
+    from tossai.output import alerts
+    from tossai.output import portfolio_report as pr
+    from tossai.portfolio.analyzer import PortfolioAnalyzer
+    from tossai.toss.client import TossClient
+
+    with TossClient(settings) as client:
+        engine = ClaudeEngine(settings, deep=deep)
+        if picks:
+            from tossai.pipeline.orchestrator import Orchestrator
+            rep = Orchestrator(settings, client, engine=engine).run_once(force=True)
+            log.info("daily: picks pass screened=%d cost~$%.4f",
+                     rep.screened_count, rep.estimated_cost_usd)
+        if settings.toss_account_seq:
+            report = PortfolioAnalyzer(settings, client, engine).run()
+            pr.save_report(report, settings.reports_dir)
+            log.info("daily: portfolio advice positions=%d", len(report.results))
+            if slack:
+                alerts.dispatch_portfolio(settings, report)
+        else:
+            log.warning("daily: TOSS_ACCOUNT_SEQ unset — skipping portfolio pass")
+        for is_pf in (False, True):
+            typer.echo(_perf_snapshot(settings, client, portfolio=is_pf))
 
 
 @app.command()

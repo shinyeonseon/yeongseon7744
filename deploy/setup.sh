@@ -54,9 +54,12 @@ mkdir -p "$APP_DIR/logs" "$APP_DIR/reports"
 echo "==> Installing systemd units (timer + oneshot + Slack server)"
 sudo cp deploy/tossai.service /etc/systemd/system/tossai.service
 sudo cp deploy/tossai.timer   /etc/systemd/system/tossai.timer
+sudo cp deploy/tossai-daily.service /etc/systemd/system/tossai-daily.service
+sudo cp deploy/tossai-daily.timer   /etc/systemd/system/tossai-daily.timer
 sudo cp deploy/tossai-serve.service /etc/systemd/system/tossai-serve.service
 sudo systemctl daemon-reload
 sudo systemctl enable --now tossai.timer
+sudo systemctl enable --now tossai-daily.timer
 # Enable the Slack server only if SLACK_ENABLED=true is set in /etc/tossai/.env
 if grep -qiE '^SLACK_ENABLED=true' "$ENV_DIR/.env" 2>/dev/null; then
   sudo systemctl enable --now tossai-serve

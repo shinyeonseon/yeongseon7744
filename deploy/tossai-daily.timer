@@ -1,0 +1,13 @@
+# Fires the daily bookkeeping pass once per weekday, after the US close.
+# 22:00 UTC ~= 16:00–17:00 US-Eastern (covers EST/EDT) = early next-morning KST.
+# Adjust the time/zone for your universe; Persistent catches missed runs (downtime).
+[Unit]
+Description=Schedule Toss investment AI daily bookkeeping
+
+[Timer]
+OnCalendar=Mon-Fri *-*-* 22:00:00 UTC
+Persistent=true
+Unit=tossai-daily.service
+
+[Install]
+WantedBy=timers.target
