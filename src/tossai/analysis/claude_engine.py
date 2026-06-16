@@ -21,6 +21,16 @@ from tossai.models import Action, AnalyzedCandidate, Candidate, Recommendation
 
 log = get_logger(__name__)
 
+# Transient API failures worth retrying: timeouts, dropped connections, rate
+# limits, and server-side 5xx (InternalServerError). A flaky 500 should not drop
+# a candidate/position from the run.
+_RETRYABLE = (
+    anthropic.APITimeoutError,
+    anthropic.APIConnectionError,
+    anthropic.RateLimitError,
+    anthropic.InternalServerError,
+)
+
 # Rough USD per 1M tokens for the soft budget guard (input, output).
 _PRICE_PER_MTOK = {
     "claude-sonnet-4-6": (3.0, 15.0),
@@ -67,13 +77,15 @@ class ClaudeEngine:
         )
 
     @retry(
-        retry=retry_if_exception_type(
-            (anthropic.APITimeoutError, anthropic.APIConnectionError, anthropic.RateLimitError)
-        ),
+        retry=retry_if_exception_type(_RETRYABLE),
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=2, max=20),
         reraise=True,
     )
+    def _create(self, **kwargs):
+        """Single Claude call with transient-failure retry (5xx/timeout/rate-limit)."""
+        return self._client.messages.create(**kwargs)
+
     def _call(self, candidate: Candidate, context=None) -> tuple[Recommendation, int, int]:
         ctx = None
         if context is not None:
@@ -81,7 +93,7 @@ class ClaudeEngine:
                 ctx = context.payload_for(candidate.symbol, candidate.market)
             except Exception as exc:
                 log.debug("market context lookup failed for %s: %s", candidate.symbol, exc)
-        resp = self._client.messages.create(
+        resp = self._create(
             model=self.model,
             max_tokens=self.s.claude_max_tokens,
             system=SYSTEM_PROMPT,
@@ -107,7 +119,7 @@ class ClaudeEngine:
         from tossai.models import AnalyzedPosition, PortfolioAction, PositionAdvice
 
         try:
-            resp = self._client.messages.create(
+            resp = self._create(
                 model=self.model,
                 max_tokens=self.s.claude_max_tokens,
                 system=POS_SYSTEM,

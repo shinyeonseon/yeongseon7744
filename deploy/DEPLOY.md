@@ -141,6 +141,21 @@ Slack 중복 발송은 없습니다(조언 푸시는 5번 또는 수동 `portfol
 ./.venv/bin/python -m tossai track --portfolio  # 보유 조언(ADD/TRIM/SELL) 사후 검증
 ```
 
+### 홈 디렉터리 배포(systemd 안 쓰고 cron으로)
+
+`/opt/tossai` 시스템 설치 대신 `~/tossai`에서 직접 운영한다면, systemd 유닛의 경로
+(`/opt/tossai`, `/etc/tossai/.env`)가 안 맞습니다. 앱이 **cwd의 `.env`를 자동 로드**하므로
+(`EnvironmentFile` 불필요) **cron이 가장 간단**합니다. 경로는 절대경로로:
+
+```cron
+# 추천: 평일 30분마다 (장중에만 Claude 호출, 장외엔 억제)
+*/30 * * * 1-5 cd /home/ubuntu/tossai && /home/ubuntu/tossai/.venv/bin/python -m tossai run-once  >> /home/ubuntu/tossai/logs/run.cron.log   2>&1
+# 성과 적재: 평일 1회, 미 장마감 후(22:00 UTC ≈ KST 07:00)
+0 22 * * 1-5   cd /home/ubuntu/tossai && /home/ubuntu/tossai/.venv/bin/python -m tossai daily --no-slack >> /home/ubuntu/tossai/logs/daily.cron.log 2>&1
+```
+`mkdir -p ~/tossai/logs` 후 `crontab -e`로 등록, `crontab -l`로 확인. (홈 배포에선 위 systemd
+유닛/타이머는 enable 하지 마세요.)
+
 ---
 
 ## 비용 주의 (Claude)
