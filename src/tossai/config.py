@@ -59,7 +59,7 @@ class Settings(BaseSettings):
     # ---- Strategies (ensemble) ----
     strategy: str = (
         "technical_swing,dual_momentum,canslim,mean_reversion,trend_breakout,"
-        "meb_faber,momentum_quality,low_volatility,"
+        "meb_faber,momentum_quality,low_volatility,relative_strength,"
         "graham,magic_formula,buffett_quality,piotroski"
     )
     candle_count: int = 0  # 0 = auto (required_history + buffer); pages past 200/call.
@@ -103,6 +103,10 @@ class Settings(BaseSettings):
     # Low-volatility factor.
     lowvol_lookback: int = 126
     lowvol_vol_cap: float = 0.03  # daily-return std where score → 0
+    # Relative strength vs the market (symbol return − same-market universe avg).
+    rs_lookback: int = 126
+    rs_score_cap: float = 0.30   # relative outperformance mapped to score 1.0
+    rs_min_rel: float = 0.0      # must beat the market by more than this to pass
     # Risk-parity / All-Weather inverse-vol weighting overlay (suggestion only).
     risk_parity_lookback: int = 63
     # Backtest trading cost charged on rebalance turnover (basis points per unit

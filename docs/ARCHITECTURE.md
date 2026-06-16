@@ -1,6 +1,6 @@
 # tossai 아키텍처 (박부장 작동 원리)
 
-> 토스증권 Open API 기반 **분석 전용** 투자 AI. 12개 정량 전략으로 종목을 거르고,
+> 토스증권 Open API 기반 **분석 전용** 투자 AI. 13개 정량 전략으로 종목을 거르고,
 > Claude가 거시·뉴스·실적까지 보고 한글로 매수/매도/보유를 판단해 슬랙으로 보냅니다.
 > **주문은 절대 내지 않습니다(analysis-only).**
 
@@ -14,7 +14,7 @@
 [유니버스 45종목]
       │  토스 API: 캔들(OHLCV) 수집 (200봉 초과는 before 커서로 페이징)
       ▼
-[① 스크리닝 — 12전략 앙상블]  정량·객관
+[① 스크리닝 — 13전략 앙상블]  정량·객관
       │  각 전략이 종목 평가 → 병합/중복제거(max score) → VIX 레짐 가중 → 점수순 top-N
       ▼
 [② 시장 컨텍스트 수집]  뉴스·다음 실적일(yfinance) + 거시(FRED 지표 + FOMC 일정)
@@ -48,13 +48,13 @@
 
 ---
 
-## 3. 전략 앙상블 (12개)
+## 3. 전략 앙상블 (13개)
 
-판단은 **하이브리드**: 규칙 기반 12전략이 후보를 거르고(정량), Claude가 종합 판단(정성)을 얹음.
+판단은 **하이브리드**: 규칙 기반 13전략이 후보를 거르고(정량), Claude가 종합 판단(정성)을 얹음.
 여러 전략이 같은 종목을 집으면 `flagged_by`로 합의 표시(예: "4개 전략 동의").
 VIX 위험국면이면 공격적(long) 전략 점수를 `regime_riskoff_weight`만큼 down-weight.
 
-### 가격/기술 전략 (8)
+### 가격/기술 전략 (9)
 | 전략 | 핵심 로직 | bucket |
 |---|---|---|
 | `technical_swing` | 기존 스크리너(RSI·SMA·거래량 서지) 래핑 | swing |
@@ -65,6 +65,7 @@ VIX 위험국면이면 공격적(long) 전략 점수를 `regime_riskoff_weight`�
 | `meb_faber` | GTAA 10개월(≈200일) SMA 타이밍 | long |
 | `momentum_quality` | 12-1 모멘텀 + FIP(frog-in-the-pan) 매끄러움 가중 | long |
 | `low_volatility` | 저변동성 이상현상(MA200 위 종목만) | long |
+| `relative_strength` | 시장(동일시장 유니버스 평균) 대비 상대강도 — 시장을 이기는 종목에 가점 | long |
 
 ### 펀더멘털 대가 전략 (4) — pykrx(KRX)/yfinance(US), lazy + graceful degrade
 | 전략 | 핵심 로직 | bucket |
@@ -138,7 +139,7 @@ src/tossai/
 ├── config.py         pydantic-settings (.env). 비밀은 redacted_summary로만 로깅
 ├── models.py         Candidate / Position / Recommendation / PositionAdvice / DISCLAIMER
 ├── toss/             토스 API: auth(OAuth) · client(캔들/계좌/보유, 페이징·429 백오프) · schemas
-├── screening/        indicators · strategies/(12종+ensemble+regime) · allocation(역변동성)
+├── screening/        indicators · strategies/(13종+ensemble+regime) · selection(분산캡) · allocation
 ├── fundamentals/     pykrx/yfinance 재무 provider (lazy, fail-soft)
 ├── context/          거시·뉴스·실적 provider (lazy, fail-soft)
 ├── analysis/         claude_engine · prompts · portfolio_prompts

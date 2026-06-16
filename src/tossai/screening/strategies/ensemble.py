@@ -24,6 +24,7 @@ from tossai.screening.strategies.mean_reversion import MeanReversionStrategy
 from tossai.screening.strategies.meb_faber import MebFaberTrendStrategy
 from tossai.screening.strategies.momentum_quality import MomentumQualityStrategy
 from tossai.screening.strategies.piotroski import PiotroskiLiteStrategy
+from tossai.screening.strategies.relative_strength import RelativeStrengthStrategy
 from tossai.screening.strategies.technical_swing import TechnicalSwingStrategy
 from tossai.screening.strategies.trend_breakout import TrendBreakoutStrategy
 
@@ -39,6 +40,7 @@ REGISTRY: dict[str, type[BaseStrategy]] = {
     "meb_faber": MebFaberTrendStrategy,
     "momentum_quality": MomentumQualityStrategy,
     "low_volatility": LowVolatilityStrategy,
+    "relative_strength": RelativeStrengthStrategy,
     # Fundamental (need a fundamentals provider; skip gracefully without one)
     "graham": GrahamValueStrategy,
     "magic_formula": MagicFormulaStrategy,
