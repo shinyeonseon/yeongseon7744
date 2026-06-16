@@ -7,6 +7,8 @@ are the most-tested pieces of the Slack layer.
 
 from __future__ import annotations
 
+import re
+
 from tossai.models import DISCLAIMER, Action, AnalyzedCandidate, Candidate
 from tossai.output.portfolio_report import PortfolioReport
 from tossai.output.report import Report
@@ -69,6 +71,26 @@ def _section(text: str) -> dict:
     return {"type": "section", "text": {"type": "mrkdwn", "text": text}}
 
 
+def _context(text: str) -> dict:
+    return {"type": "context", "elements": [{"type": "mrkdwn", "text": text}]}
+
+
+def _divider() -> dict:
+    return {"type": "divider"}
+
+
+def _slack_mrkdwn(text: str) -> str:
+    """Convert the Markdown Claude emits to Slack's mrkdwn so it renders cleanly
+    (Slack bold is *one* asterisk, so '**x**' would otherwise show literal '**')."""
+    text = text or ""
+    text = re.sub(r"\*\*(.+?)\*\*", r"*\1*", text, flags=re.S)   # **bold** -> *bold*
+    text = re.sub(r"__(.+?)__", r"*\1*", text, flags=re.S)        # __bold__ -> *bold*
+    text = re.sub(r"(?m)^\s{0,3}#{1,6}\s*(.+?)\s*$", r"*\1*", text)  # # Heading -> *Heading*
+    text = re.sub(r"(?m)^(\s*)[-*]\s+", r"\1• ", text)           # - item / * item -> • item
+    text = re.sub(r"\n{3,}", "\n\n", text)                        # collapse big gaps
+    return text.strip()
+
+
 def _header(text: str) -> dict:
     return {"type": "header", "text": {"type": "plain_text", "text": _truncate(text, 150)}}
 
@@ -81,32 +103,44 @@ def _recommendation_sections(item: AnalyzedCandidate) -> list[dict]:
     c = item.candidate
     rec = item.recommendation
     emoji = _ACTION_EMOJI.get(rec.action, "•")
-    target = f" → *{rec.target_price:.2f}*" if rec.target_price is not None else ""
-    head = (
-        f"{emoji} *{c.symbol}* [{c.market}] *{_action_ko(rec.action.value)}* "
-        f"({rec.confidence:.0%}){target}"
-    )
-    return _text_sections(f"{head}\n{(rec.rationale or '').strip()}")
+    title = c.name and f"{c.name} `{c.symbol}`" or f"`{c.symbol}`"
+    blocks = [_section(
+        f"{emoji} *{title}*  ·  {c.market}  ·  *{_action_ko(rec.action.value)}*  ·  확신도 {rec.confidence:.0%}"
+    )]
+    # Compact metadata line (only the fields we actually have).
+    meta = []
+    if rec.target_price is not None:
+        meta.append(f"🎯 목표가 *{rec.target_price:,.2f}*")
+    if c.price is not None:
+        meta.append(f"현재가 {c.price:,.2f}")
+    if getattr(c, "flagged_by", None):
+        meta.append(f"전략 {len(c.flagged_by)}종 동의")
+    if meta:
+        blocks.append(_context("  ·  ".join(meta)))
+    if rec.rationale:
+        blocks.extend(_text_sections(_slack_mrkdwn(rec.rationale)))
+    blocks.append(_divider())
+    return blocks
 
 
 def report_blocks(report: Report, min_confidence: float = 0.0) -> list[dict]:
     """Recommendation signals from a run. Includes all results; the actionable
     count (BUY/SELL ≥ confidence) is summarized at the top."""
     actionable = report.actionable(min_confidence)
+    open_txt = "장중" if report.market_open else "장마감"
     blocks: list[dict] = [
         _header("📈 Toss AI — 추천 시그널"),
-        _section(
-            f"*{report.generated_at:%Y-%m-%d %H:%M UTC}*  ·  시장 `{report.market}` "
-            f"(개장={report.market_open})\n"
+        _context(
+            f"{report.generated_at:%Y-%m-%d %H:%M UTC}  ·  시장 *{report.market}* ({open_txt})  ·  "
             f"유니버스 *{report.universe_size}*  ·  스크리닝 *{report.screened_count}*  ·  "
-            f"실행대상 *{len(actionable)}*  ·  ~${report.estimated_cost_usd:.4f}"
+            f"실행대상 *{len(actionable)}*  ·  분석비용 ~${report.estimated_cost_usd:.4f}"
         ),
+        _divider(),
     ]
     if not report.results:
         blocks.append(_section("_스크리닝을 통과한 종목이 없습니다._"))
     for item in report.results:
         blocks.extend(_recommendation_sections(item))
-    blocks.append({"type": "divider"})
     blocks.append(_disclaimer_block())
     return blocks
 
@@ -114,23 +148,34 @@ def report_blocks(report: Report, min_confidence: float = 0.0) -> list[dict]:
 def _portfolio_sections(item) -> list[dict]:
     p, a = item.position, item.advice
     emoji = _PORTFOLIO_EMOJI.get(a.action.value, "•")
-    pl = f"  P&L *{p.pl_rate * 100:+.1f}%*" if p.pl_rate is not None else ""
-    rationale = " ".join((a.rationale or "").split())
-    head = (
-        f"{emoji} *{p.symbol}* [{p.market}] *{_action_ko(a.action.value)}* "
-        f"({a.confidence:.0%}){pl}"
-    )
-    return _text_sections(f"{head}\n{rationale}")
+    title = p.name and f"{p.name} `{p.symbol}`" or f"`{p.symbol}`"
+    blocks = [_section(
+        f"{emoji} *{title}*  ·  {p.market}  ·  *{_action_ko(a.action.value)}*  ·  확신도 {a.confidence:.0%}"
+    )]
+    meta = []
+    if p.pl_rate is not None:
+        arrow = "🔺" if p.pl_rate >= 0 else "🔻"
+        meta.append(f"손익 {arrow} *{p.pl_rate * 100:+.1f}%*")
+    if p.avg_price:
+        meta.append(f"평단 {p.avg_price:,.2f}")
+    if p.last_price:
+        meta.append(f"현재가 {p.last_price:,.2f}")
+    if meta:
+        blocks.append(_context("  ·  ".join(meta)))
+    if a.rationale:
+        blocks.extend(_text_sections(_slack_mrkdwn(a.rationale)))
+    blocks.append(_divider())
+    return blocks
 
 
 def portfolio_blocks(report: PortfolioReport, min_confidence: float = 0.0) -> list[dict]:
-    """Held-position advice (ADD/HOLD/TRIM/SELL) as Block Kit. Shows every
-    position; rationale newlines are flattened so each stays one section."""
+    """Held-position advice (ADD/HOLD/TRIM/SELL) as Block Kit — one card per
+    position (title · metrics context · Korean rationale · divider)."""
     blocks: list[dict] = [
         _header("💼 보유 포트폴리오 조언"),
-        _section(
-            f"*{report.generated_at:%Y-%m-%d %H:%M UTC}*  ·  "
-            f"보유종목 *{report.positions_count}*  ·  ~${report.estimated_cost_usd:.4f}"
+        _context(
+            f"{report.generated_at:%Y-%m-%d %H:%M UTC}  ·  "
+            f"보유종목 *{report.positions_count}*  ·  분석비용 ~${report.estimated_cost_usd:.4f}"
         ),
     ]
     shown = [r for r in report.results if r.advice.confidence >= min_confidence]
@@ -138,7 +183,6 @@ def portfolio_blocks(report: PortfolioReport, min_confidence: float = 0.0) -> li
         blocks.append(_section("_조회된 보유종목이 없습니다 (TOSS_ACCOUNT_SEQ 확인)._"))
     for item in shown:
         blocks.extend(_portfolio_sections(item))
-    blocks.append({"type": "divider"})
     blocks.append(_disclaimer_block())
     return blocks
 
