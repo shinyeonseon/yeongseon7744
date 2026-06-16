@@ -142,7 +142,7 @@ def portfolio(
 def backtest(
     years: float = typer.Option(3.0, "--years", help="Years of history to fetch."),
     rebalance: int = typer.Option(21, "--rebalance", help="Rebalance every N trading days."),
-    top: int = typer.Option(8, "--top", help="Hold the top-N candidates each rebalance."),
+    top: int = typer.Option(10, "--top", help="Hold the top-N candidates each rebalance."),
     weighting: str = typer.Option(
         None, "--weighting", help="equal | inverse_vol. Default from config."),
     cost_bps: float = typer.Option(

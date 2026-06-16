@@ -47,6 +47,10 @@ ALERT_MIN_CONFIDENCE=0.6    # 이 이상 BUY/SELL만 푸시
 ```
 이것만으로 `tossai.timer`가 주기적으로 분석해 채널에 올립니다. (서버 불필요)
 
+> **`channel_not_found` / `not_in_channel` 에러가 나면**: ① `SLACK_CHANNEL`을 채널 **ID**
+> (`#채널이름`의 우클릭 → 채널 세부정보 맨 아래 `C0XXXXXXX`)로 넣고 ② 그 채널에서 봇을 초대
+> (`/invite @봇이름`)하세요. 봇 토큰 스코프에 `chat:write`가 있어야 합니다.
+
 **Slack 슬래시 명령(/recommend 등 인터랙티브)까지 원하면** 추가로:
 ```ini
 SLACK_ENABLED=true

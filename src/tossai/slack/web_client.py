@@ -31,7 +31,14 @@ class SlackClient:
             self._client.chat_postMessage(channel=channel, blocks=blocks, text=text or " ")
             return True
         except SlackApiError as exc:
-            log.error("chat.postMessage failed: %s", exc.response.get("error", exc))
+            err = exc.response.get("error", exc)
+            hint = ""
+            if err == "channel_not_found":
+                hint = (" — check SLACK_CHANNEL (use the channel ID like C0XXXX or "
+                        "#channel-name) and invite the bot to it: /invite @your-bot")
+            elif err == "not_in_channel":
+                hint = " — invite the bot to the channel: /invite @your-bot"
+            log.error("chat.postMessage failed: %s%s", err, hint)
             return False
 
     def respond(self, response_url: str, blocks: list[dict], text: str = "",

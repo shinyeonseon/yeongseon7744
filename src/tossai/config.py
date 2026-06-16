@@ -111,11 +111,12 @@ class Settings(BaseSettings):
     # Move a held symbol's weight to cash while it trades below its trailing MA
     # (``trend_ma``) — cuts drawdown by de-risking trend breaks. On by default.
     backtest_trend_filter: bool = True
-    # Risk management (drawdown control). Default weighting is inverse-vol (shrinks
-    # the most explosive names); a volatility target scales total exposure down to
-    # cash when the portfolio's own realized vol exceeds backtest_vol_target.
-    backtest_weighting: str = "inverse_vol"  # equal | inverse_vol
-    backtest_vol_target: float = 0.15  # annualized; 0 disables vol targeting
+    # Risk management (drawdown control). Diversification (more holdings, equal
+    # weight) proved the effective lever in backtests; inverse-vol weighting and a
+    # tight vol target hurt risk-adjusted returns, so weighting defaults to equal
+    # and the vol target is loosened so it only de-risks in genuine turbulence.
+    backtest_weighting: str = "equal"  # equal | inverse_vol
+    backtest_vol_target: float = 0.20  # annualized; 0 disables vol targeting
     backtest_vol_lookback: int = 20
 
     # ---- Investment-master strategies (fundamental) ----
