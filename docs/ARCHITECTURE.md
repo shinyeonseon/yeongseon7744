@@ -128,6 +128,8 @@ VIX 위험국면이면 공격적(long) 전략 점수를 `regime_riskoff_weight`�
 기간별(5/21/63일)·액션별로 집계하고, **확신도가 실제로 유의미한지**(≥0.7 vs <0.7) 비교.
 기존 저장 리포트에서 자동 백필. 외부 데이터 불필요(이미 받는 캔들 사용).
 명령: `python -m tossai track [--horizons 5,21,63] [--min-confidence 0.6]`
+**포트폴리오 조언 백테스트**도 같은 채점기로: `track --portfolio` → 보유 조언(ADD=강세,
+TRIM/SELL=약세, HOLD 제외)을 `portfolio_*.json`에서 백필해 사후 검증.
 
 ---
 

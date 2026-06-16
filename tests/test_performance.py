@@ -26,6 +26,39 @@ def test_append_is_idempotent(tmp_path):
     assert [r.symbol for r in ledger.load_ledger(str(tmp_path))] == ["AAPL"]
 
 
+def test_backfill_from_portfolio_reports(tmp_path):
+    report = {
+        "generated_at": "2026-06-01T09:00:00+00:00",
+        "results": [
+            {"position": {"symbol": "MU", "market": "US", "last_price": 100.0},
+             "advice": {"action": "TRIM", "confidence": 0.72}},
+            {"position": {"symbol": "ORCL", "market": "US", "last_price": 50.0},
+             "advice": {"action": "HOLD", "confidence": 0.5}},
+        ],
+    }
+    (tmp_path / "portfolio_2026-06-01_090000.json").write_text(json.dumps(report))
+    (tmp_path / "2026-06-01_090000.json").write_text(json.dumps({"results": []}))  # reco — ignored
+    n = ledger.backfill_from_portfolio_reports(str(tmp_path))
+    assert n == 2
+    recs = ledger.load_ledger(str(tmp_path), ledger.PORTFOLIO_LEDGER_NAME)
+    by = {r.symbol: r for r in recs}
+    assert by["MU"].action == "TRIM" and by["MU"].price == 100.0
+
+
+def test_add_and_trim_scored_directionally():
+    start = datetime(2026, 1, 1, tzinfo=UTC)
+    rising = _candles_from([100.0 + i for i in range(40)], start)
+    falling = _candles_from([100.0 - i for i in range(40)], start)
+    recs = [
+        RecoRecord(date="2026-01-01", symbol="UP", market="US", action="ADD", confidence=0.8),
+        RecoRecord(date="2026-01-01", symbol="DN", market="US", action="TRIM", confidence=0.8),
+    ]
+    s = tracker.evaluate(recs, {"UP": rising, "DN": falling}, horizons=(21,), primary_horizon=21)
+    # ADD on a riser = right; TRIM on a faller = right → both wins.
+    assert s.by_action["ADD"].win_rate == 1.0
+    assert s.by_action["TRIM"].win_rate == 1.0
+
+
 def test_backfill_from_reports(tmp_path):
     report = {
         "generated_at": "2026-06-01T09:00:00+00:00",

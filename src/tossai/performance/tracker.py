@@ -10,7 +10,9 @@ from __future__ import annotations
 from tossai.models import Candle
 from tossai.performance.models import HorizonStat, PerformanceSummary, RecoRecord
 
-_DIRECTIONAL = {"BUY": 1.0, "SELL": -1.0}
+# Direction of each call (bullish +1 / bearish −1); HOLD is neutral and unscored.
+# Covers both recommendation actions (BUY/SELL) and portfolio advice (ADD/TRIM/SELL).
+_DIRECTIONAL = {"BUY": 1.0, "ADD": 1.0, "SELL": -1.0, "TRIM": -1.0}
 
 
 def _entry_index(candles: list[Candle], iso_date: str) -> int | None:
@@ -41,7 +43,7 @@ def evaluate(
     ]
     # Collect direction-adjusted returns per horizon.
     per_h: dict[int, list[float]] = {h: [] for h in horizons}
-    per_action: dict[str, list[float]] = {"BUY": [], "SELL": []}
+    per_action: dict[str, list[float]] = {}
     hi, lo = [], []
     scored = pending = 0
 
@@ -61,7 +63,7 @@ def evaluate(
             per_h[h].append(adj)
             if h == primary_horizon:
                 scored_primary = True
-                per_action[r.action].append(adj)
+                per_action.setdefault(r.action, []).append(adj)
                 (hi if r.confidence >= 0.7 else lo).append(adj)
         if scored_primary:
             scored += 1
@@ -99,12 +101,12 @@ def _avg(vals: list[float]) -> float | None:
     return sum(vals) / len(vals) if vals else None
 
 
-def summary_table(s: PerformanceSummary) -> str:
+def summary_table(s: PerformanceSummary, title: str = "Recommendation performance") -> str:
     span = f" · {s.first_date}→{s.last_date}" if s.first_date else ""
     lines = [
-        f"=== Recommendation performance ({s.scored} scored, {s.pending} pending, "
+        f"=== {title} ({s.scored} scored, {s.pending} pending, "
         f"{s.total} logged{span}) ===",
-        "direction-adjusted forward return (BUY=+ret, SELL=−ret); win = right direction",
+        "direction-adjusted forward return (bullish=+ret, bearish=−ret); win = right direction",
         f"{'HORIZON':<9}{'N':>5}{'WIN%':>8}{'AVG RET':>10}",
     ]
     for h in s.horizons:

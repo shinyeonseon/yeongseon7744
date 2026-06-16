@@ -16,22 +16,24 @@ from tossai.performance.models import RecoRecord
 log = get_logger(__name__)
 
 LEDGER_NAME = "recommendations.jsonl"
+PORTFOLIO_LEDGER_NAME = "portfolio_advice.jsonl"
 
 
-def _ledger_path(reports_dir: str) -> Path:
-    return Path(reports_dir) / LEDGER_NAME
+def _ledger_path(reports_dir: str, filename: str = LEDGER_NAME) -> Path:
+    return Path(reports_dir) / filename
 
 
-def append_records(records: list[RecoRecord], reports_dir: str) -> int:
+def append_records(records: list[RecoRecord], reports_dir: str,
+                   filename: str = LEDGER_NAME) -> int:
     """Append records, skipping ones already present (idempotent by date+symbol+action)."""
     if not records:
         return 0
     Path(reports_dir).mkdir(parents=True, exist_ok=True)
-    existing = {r.key() for r in load_ledger(reports_dir)}
+    existing = {r.key() for r in load_ledger(reports_dir, filename)}
     new = [r for r in records if r.key() not in existing]
     if not new:
         return 0
-    with _ledger_path(reports_dir).open("a", encoding="utf-8") as fh:
+    with _ledger_path(reports_dir, filename).open("a", encoding="utf-8") as fh:
         for r in new:
             fh.write(r.model_dump_json() + "\n")
     return len(new)
@@ -51,8 +53,8 @@ def append_report(report, reports_dir: str) -> int:
     return append_records(records, reports_dir)
 
 
-def load_ledger(reports_dir: str) -> list[RecoRecord]:
-    path = _ledger_path(reports_dir)
+def load_ledger(reports_dir: str, filename: str = LEDGER_NAME) -> list[RecoRecord]:
+    path = _ledger_path(reports_dir, filename)
     if not path.exists():
         return []
     out: list[RecoRecord] = []
@@ -96,3 +98,33 @@ def backfill_from_reports(reports_dir: str) -> int:
                 price=cand.get("price"),
             ))
     return append_records(records, reports_dir)
+
+
+def backfill_from_portfolio_reports(reports_dir: str) -> int:
+    """Seed the portfolio-advice ledger from saved portfolio reports
+    (reports/portfolio_*.json). Advice action + the position's price at the time."""
+    d = Path(reports_dir)
+    if not d.exists():
+        return 0
+    records: list[RecoRecord] = []
+    for path in sorted(d.glob("portfolio_*.json")):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        date = str(data.get("generated_at", ""))[:10]
+        if not date:
+            continue
+        for r in data.get("results", []):
+            pos = r.get("position", {})
+            adv = r.get("advice", {})
+            sym = pos.get("symbol")
+            action = adv.get("action")
+            if not sym or not action:
+                continue
+            records.append(RecoRecord(
+                date=date, symbol=sym, market=pos.get("market", ""),
+                action=action, confidence=adv.get("confidence", 0.0) or 0.0,
+                price=pos.get("last_price"),
+            ))
+    return append_records(records, reports_dir, PORTFOLIO_LEDGER_NAME)

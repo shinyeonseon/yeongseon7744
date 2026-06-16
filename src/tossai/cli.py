@@ -212,18 +212,26 @@ def track(
     primary: int = typer.Option(21, "--primary", help="Horizon used for per-action/confidence stats."),
     min_confidence: float = typer.Option(
         0.0, "--min-confidence", help="Only score recommendations at/above this confidence."),
+    portfolio: bool = typer.Option(
+        False, "--portfolio", help="Score held-position advice (ADD/TRIM/SELL) instead of picks."),
 ) -> None:
     """Score past recommendations against later prices (did they add alpha?)."""
     settings = _boot()
     from tossai.performance import ledger, tracker
     from tossai.toss.client import TossClient
 
-    seeded = ledger.backfill_from_reports(settings.reports_dir)
+    if portfolio:
+        seeded = ledger.backfill_from_portfolio_reports(settings.reports_dir)
+        records = ledger.load_ledger(settings.reports_dir, ledger.PORTFOLIO_LEDGER_NAME)
+        empty_msg = "No portfolio advice logged yet (run `portfolio` a few times first)."
+    else:
+        seeded = ledger.backfill_from_reports(settings.reports_dir)
+        records = ledger.load_ledger(settings.reports_dir)
+        empty_msg = "No recommendations logged yet (run `run-once` a few times first)."
     if seeded:
         log.info("ledger backfilled %d records from saved reports", seeded)
-    records = ledger.load_ledger(settings.reports_dir)
     if not records:
-        typer.echo("No recommendations logged yet (run `run-once` a few times first).")
+        typer.echo(empty_msg)
         return
 
     hs = tuple(int(x) for x in horizons.split(",") if x.strip())
@@ -239,7 +247,8 @@ def track(
 
     summary = tracker.evaluate(records, candle_map, horizons=hs,
                                primary_horizon=primary, min_confidence=min_confidence)
-    typer.echo(tracker.summary_table(summary))
+    title = "Portfolio advice performance" if portfolio else "Recommendation performance"
+    typer.echo(tracker.summary_table(summary, title))
 
 
 @app.command()
