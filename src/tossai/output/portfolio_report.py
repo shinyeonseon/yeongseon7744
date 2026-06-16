@@ -21,6 +21,12 @@ def _oneline(text: str, n: int = 48) -> str:
     return (flat[: n - 1] + "…") if len(flat) > n else flat
 
 
+def _fmt_qty(q: float) -> str:
+    """Whole shares as integers; fractional holdings keep up to 4 sig figs so a
+    small fractional position (Toss supports fractional US shares) isn't shown as 0."""
+    return f"{q:.0f}" if q == int(q) else f"{q:.4g}"
+
+
 class PortfolioReport(BaseModel):
     generated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     positions_count: int = 0
@@ -54,7 +60,7 @@ def console_table(report: PortfolioReport) -> str:
         pl = f"{p.pl_rate * 100:+.1f}" if p.pl_rate is not None else "-"
         rationale = _oneline(a.rationale, 48)
         lines.append(
-            f"{p.symbol:<8}{p.market:<5}{p.quantity:>6.0f} {p.avg_price:>11.2f} "
+            f"{p.symbol:<8}{p.market:<5}{_fmt_qty(p.quantity):>6} {p.avg_price:>11.2f} "
             f"{p.last_price:>11.2f} {pl:>8}  {emoji}{a.action.value:<7}{a.confidence:<6.2f}{rationale}"
         )
     lines.append("-" * 92)
