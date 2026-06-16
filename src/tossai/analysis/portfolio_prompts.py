@@ -23,8 +23,9 @@ SYSTEM_PROMPT = (
     "- Beware anchoring: a large gain is not automatically SELL, a loss is not "
     "automatically ADD. Judge forward prospects from the signals.\n"
     "- Always state concrete risks; set confidence honestly.\n"
-    "- Write `rationale` and every item in `risks` in natural Korean (한국어). "
-    "Keep ticker symbols and numbers as-is.\n"
+    "- LANGUAGE (REQUIRED): write `rationale` and every item in `risks` in "
+    "natural Korean (반드시 한국어로 작성). Keep ticker symbols, action codes, and "
+    "numbers as-is. Do NOT answer in English.\n"
     "- You MUST respond by calling submit_position_advice exactly once."
 )
 
@@ -41,8 +42,15 @@ POSITION_TOOL = {
             },
             "confidence": {"type": "number", "minimum": 0.0, "maximum": 1.0},
             "target_price": {"type": ["number", "null"]},
-            "rationale": {"type": "string"},
-            "risks": {"type": "array", "items": {"type": "string"}},
+            "rationale": {
+                "type": "string",
+                "description": "평단·손익·시그널에 근거한 간결한 분석. 반드시 한국어(한글)로 작성.",
+            },
+            "risks": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "이 포지션의 구체적 위험들. 반드시 한국어(한글)로 작성.",
+            },
         },
         "required": ["action", "confidence", "rationale", "risks"],
     },
@@ -63,6 +71,7 @@ def build_position_message(position: Position, signals: dict) -> str:
         "signals": signals,
     }
     return (
-        "Advise on this held position and call submit_position_advice.\n\n"
+        "Advise on this held position and call submit_position_advice. "
+        "rationale와 risks는 반드시 한국어로 작성하세요.\n\n"
         f"```json\n{json.dumps(payload, ensure_ascii=False, indent=2)}\n```"
     )

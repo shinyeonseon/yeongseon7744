@@ -30,8 +30,9 @@ SYSTEM_PROMPT = (
     "- Signal keys are namespaced by strategy (e.g. 'graham.per', "
     "'buffett_quality.roe', 'magic_formula.earnings_yield'). Fundamental data may "
     "be absent for some markets/symbols; if so, simply rely on what is present.\n"
-    "- Write `rationale` and every item in `risks` in natural Korean (한국어). "
-    "Keep ticker symbols and numbers as-is.\n"
+    "- LANGUAGE (REQUIRED): write `rationale` and every item in `risks` in "
+    "natural Korean (반드시 한국어로 작성). Keep ticker symbols, action codes, and "
+    "numbers as-is. Do NOT answer in English.\n"
     "- You MUST respond by calling the submit_recommendation tool exactly once."
 )
 
@@ -59,12 +60,12 @@ RECOMMENDATION_TOOL = {
             },
             "rationale": {
                 "type": "string",
-                "description": "Concise reasoning grounded in the provided signals.",
+                "description": "제공된 시그널에 근거한 간결한 분석. 반드시 한국어(한글)로 작성.",
             },
             "risks": {
                 "type": "array",
                 "items": {"type": "string"},
-                "description": "Concrete risks to this view.",
+                "description": "이 견해에 대한 구체적 위험들. 반드시 한국어(한글)로 작성.",
             },
             "time_horizon": {
                 "type": "string",
@@ -92,6 +93,7 @@ def build_user_message(candidate: Candidate) -> str:
         "technical_signals": candidate.signals,
     }
     return (
-        "Analyze this single candidate and call submit_recommendation.\n\n"
+        "Analyze this single candidate and call submit_recommendation. "
+        "rationale와 risks는 반드시 한국어로 작성하세요.\n\n"
         f"```json\n{json.dumps(payload, ensure_ascii=False, indent=2)}\n```"
     )
