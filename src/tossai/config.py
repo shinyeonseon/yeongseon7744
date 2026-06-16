@@ -109,8 +109,13 @@ class Settings(BaseSettings):
     # traded; a blended commission + tax + slippage estimate).
     backtest_cost_bps: float = 10.0
     # Move a held symbol's weight to cash while it trades below its trailing MA
-    # (``trend_ma``) — cuts drawdown by de-risking trend breaks. On by default.
+    # (``backtest_trend_ma``) — cuts drawdown by de-risking trend breaks. On by
+    # default. Separate from the shared ``trend_ma`` (200) that live master
+    # strategies use as their long-term gate: backtests showed a faster 100-day
+    # MA cut max drawdown (-30%→-25%) while keeping Sharpe and most of the return;
+    # MA50 over-traded and hurt both. So the backtest filter defaults to 100.
     backtest_trend_filter: bool = True
+    backtest_trend_ma: int = 100
     # Risk management (drawdown control). Live backtests showed diversification
     # (equal-weight, more holdings) is the only lever that helped; inverse-vol
     # weighting and a volatility target both cut returns without reducing max

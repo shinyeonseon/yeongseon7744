@@ -187,7 +187,7 @@ def backtest(
         risk_parity_lookback=settings.risk_parity_lookback,
         cost_bps=settings.backtest_cost_bps if cost_bps is None else cost_bps,
         trend_filter=settings.backtest_trend_filter if trend_filter is None else trend_filter,
-        trend_ma=settings.trend_ma if trend_ma is None else trend_ma,
+        trend_ma=settings.backtest_trend_ma if trend_ma is None else trend_ma,
         vol_target=settings.backtest_vol_target if vol_target is None else vol_target,
         vol_lookback=settings.backtest_vol_lookback if vol_lookback is None else vol_lookback,
     )
