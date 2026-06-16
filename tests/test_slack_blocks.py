@@ -88,10 +88,18 @@ def test_help_and_status():
     assert "market" in "".join(str(b) for b in sb)
 
 
-def test_truncate_long_rationale():
-    long = "x" * 500
+def test_rationale_shown_in_full():
+    # A normal multi-paragraph rationale must not be clipped to a sentence.
+    body = "x" * 500
     rep = _report()
-    rep.results[0].recommendation.rationale = long
-    bs = blocks.report_blocks(rep)
-    text = "".join(str(b) for b in bs)
-    assert "…" in text  # truncated
+    rep.results[0].recommendation.rationale = body
+    text = "".join(str(b) for b in blocks.report_blocks(rep))
+    assert body in text and "…" not in text
+
+
+def test_truncate_only_past_slack_cap():
+    # Only an extreme rationale (beyond Slack's section limit) gets clipped.
+    rep = _report()
+    rep.results[0].recommendation.rationale = "y" * 4000
+    text = "".join(str(b) for b in blocks.report_blocks(rep))
+    assert "…" in text

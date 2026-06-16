@@ -39,6 +39,11 @@ def _truncate(text: str, n: int = 280) -> str:
     return text if len(text) <= n else text[: n - 1] + "…"
 
 
+# Slack section text caps at 3000 chars; show the full rationale (minus the short
+# symbol/action prefix) instead of clipping it to a sentence.
+_RATIONALE_MAX = 2800
+
+
 def _section(text: str) -> dict:
     return {"type": "section", "text": {"type": "mrkdwn", "text": text}}
 
@@ -58,7 +63,7 @@ def _recommendation_line(item: AnalyzedCandidate) -> str:
     target = f" → *{rec.target_price:.2f}*" if rec.target_price is not None else ""
     return (
         f"{emoji} *{c.symbol}* [{c.market}] *{_action_ko(rec.action.value)}* "
-        f"({rec.confidence:.0%}){target}\n_{_truncate(rec.rationale, 220)}_"
+        f"({rec.confidence:.0%}){target}\n{_truncate(rec.rationale, _RATIONALE_MAX)}"
     )
 
 
@@ -91,7 +96,7 @@ def _portfolio_line(item) -> str:
     rationale = " ".join((a.rationale or "").split())
     return (
         f"{emoji} *{p.symbol}* [{p.market}] *{_action_ko(a.action.value)}* "
-        f"({a.confidence:.0%}){pl}\n_{_truncate(rationale, 220)}_"
+        f"({a.confidence:.0%}){pl}\n{_truncate(rationale, _RATIONALE_MAX)}"
     )
 
 
