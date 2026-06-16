@@ -126,6 +126,10 @@ class Settings(BaseSettings):
     backtest_weighting: str = "equal"  # equal | inverse_vol
     backtest_vol_target: float = 0.0  # annualized; 0 disables vol targeting
     backtest_vol_lookback: int = 20
+    # Diversification cap: at most this many held names may share a sector
+    # (needs `sector:` labels in universe.yaml). Directly limits the correlated
+    # sector-cluster drawdown the backtest exposed. 0 disables.
+    max_per_sector: int = 3
 
     # ---- Investment-master strategies (fundamental) ----
     # Need a fundamentals source (pykrx for KRX, yfinance for US). Lazy-imported;

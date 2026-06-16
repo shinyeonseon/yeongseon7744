@@ -1,6 +1,11 @@
 # Watchlist of symbols to screen. Copy to config/universe.yaml and edit.
-# Entries may be a bare symbol string or a {symbol, name} mapping.
+# Entries may be a bare symbol string or a {symbol, name, sector} mapping.
 # Only symbols for the active MARKET setting (KRX / US / BOTH) are loaded.
+#
+# `sector` is optional but recommended: it powers the diversification cap
+# (MAX_PER_SECTOR — at most N held names per sector), which limits the
+# correlated sector-cluster drawdown the backtest exposed. Symbols without a
+# sector are never capped. Keep labels consistent (same string = same bucket).
 #
 # A broader universe gives the screening/strategies real selection power
 # (a tiny all-winners list makes every strategy flag everything). ~45 names
@@ -8,50 +13,50 @@
 # (each pages ~2 calls); the chart rate limit (5/s) is handled with backoff.
 
 KRX:
-  - { symbol: "005930", name: "Samsung Electronics" }
-  - { symbol: "000660", name: "SK hynix" }
-  - { symbol: "005380", name: "Hyundai Motor" }
-  - { symbol: "000270", name: "Kia" }
-  - { symbol: "005490", name: "POSCO Holdings" }
-  - { symbol: "035420", name: "NAVER" }
-  - { symbol: "035720", name: "Kakao" }
-  - { symbol: "051910", name: "LG Chem" }
-  - { symbol: "006400", name: "Samsung SDI" }
-  - { symbol: "207940", name: "Samsung Biologics" }
-  - { symbol: "068270", name: "Celltrion" }
-  - { symbol: "105560", name: "KB Financial" }
-  - { symbol: "055550", name: "Shinhan Financial" }
-  - { symbol: "086790", name: "Hana Financial" }
-  - { symbol: "012330", name: "Hyundai Mobis" }
-  - { symbol: "028260", name: "Samsung C&T" }
-  - { symbol: "015760", name: "KEPCO" }
-  - { symbol: "017670", name: "SK Telecom" }
-  - { symbol: "003550", name: "LG Corp" }
-  - { symbol: "066570", name: "LG Electronics" }
-  - { symbol: "010130", name: "Korea Zinc" }
-  - { symbol: "009150", name: "Samsung Electro-Mechanics" }
-  - { symbol: "032830", name: "Samsung Life" }
-  - { symbol: "316140", name: "Woori Financial" }
-  - { symbol: "000810", name: "Samsung F&M Insurance" }
+  - { symbol: "005930", name: "Samsung Electronics", sector: "Semiconductor" }
+  - { symbol: "000660", name: "SK hynix", sector: "Semiconductor" }
+  - { symbol: "005380", name: "Hyundai Motor", sector: "Auto" }
+  - { symbol: "000270", name: "Kia", sector: "Auto" }
+  - { symbol: "005490", name: "POSCO Holdings", sector: "Materials" }
+  - { symbol: "035420", name: "NAVER", sector: "Internet" }
+  - { symbol: "035720", name: "Kakao", sector: "Internet" }
+  - { symbol: "051910", name: "LG Chem", sector: "Battery" }
+  - { symbol: "006400", name: "Samsung SDI", sector: "Battery" }
+  - { symbol: "207940", name: "Samsung Biologics", sector: "Healthcare" }
+  - { symbol: "068270", name: "Celltrion", sector: "Healthcare" }
+  - { symbol: "105560", name: "KB Financial", sector: "Financials" }
+  - { symbol: "055550", name: "Shinhan Financial", sector: "Financials" }
+  - { symbol: "086790", name: "Hana Financial", sector: "Financials" }
+  - { symbol: "012330", name: "Hyundai Mobis", sector: "Auto" }
+  - { symbol: "028260", name: "Samsung C&T", sector: "Industrials" }
+  - { symbol: "015760", name: "KEPCO", sector: "Utilities" }
+  - { symbol: "017670", name: "SK Telecom", sector: "Telecom" }
+  - { symbol: "003550", name: "LG Corp", sector: "Industrials" }
+  - { symbol: "066570", name: "LG Electronics", sector: "TechHardware" }
+  - { symbol: "010130", name: "Korea Zinc", sector: "Materials" }
+  - { symbol: "009150", name: "Samsung Electro-Mechanics", sector: "TechHardware" }
+  - { symbol: "032830", name: "Samsung Life", sector: "Financials" }
+  - { symbol: "316140", name: "Woori Financial", sector: "Financials" }
+  - { symbol: "000810", name: "Samsung F&M Insurance", sector: "Financials" }
 
 US:
-  - { symbol: "AAPL", name: "Apple" }
-  - { symbol: "MSFT", name: "Microsoft" }
-  - { symbol: "NVDA", name: "NVIDIA" }
-  - { symbol: "GOOGL", name: "Alphabet" }
-  - { symbol: "AMZN", name: "Amazon" }
-  - { symbol: "META", name: "Meta Platforms" }
-  - { symbol: "TSLA", name: "Tesla" }
-  - { symbol: "AVGO", name: "Broadcom" }
-  - { symbol: "JPM", name: "JPMorgan Chase" }
-  - { symbol: "V", name: "Visa" }
-  - { symbol: "UNH", name: "UnitedHealth" }
-  - { symbol: "XOM", name: "Exxon Mobil" }
-  - { symbol: "JNJ", name: "Johnson & Johnson" }
-  - { symbol: "WMT", name: "Walmart" }
-  - { symbol: "PG", name: "Procter & Gamble" }
-  - { symbol: "MA", name: "Mastercard" }
-  - { symbol: "HD", name: "Home Depot" }
-  - { symbol: "COST", name: "Costco" }
-  - { symbol: "ORCL", name: "Oracle" }
-  - { symbol: "NFLX", name: "Netflix" }
+  - { symbol: "AAPL", name: "Apple", sector: "TechHardware" }
+  - { symbol: "MSFT", name: "Microsoft", sector: "Software" }
+  - { symbol: "NVDA", name: "NVIDIA", sector: "Semiconductor" }
+  - { symbol: "GOOGL", name: "Alphabet", sector: "Internet" }
+  - { symbol: "AMZN", name: "Amazon", sector: "Internet" }
+  - { symbol: "META", name: "Meta Platforms", sector: "Internet" }
+  - { symbol: "TSLA", name: "Tesla", sector: "Auto" }
+  - { symbol: "AVGO", name: "Broadcom", sector: "Semiconductor" }
+  - { symbol: "JPM", name: "JPMorgan Chase", sector: "Financials" }
+  - { symbol: "V", name: "Visa", sector: "Financials" }
+  - { symbol: "UNH", name: "UnitedHealth", sector: "Healthcare" }
+  - { symbol: "XOM", name: "Exxon Mobil", sector: "Energy" }
+  - { symbol: "JNJ", name: "Johnson & Johnson", sector: "Healthcare" }
+  - { symbol: "WMT", name: "Walmart", sector: "ConsumerStaples" }
+  - { symbol: "PG", name: "Procter & Gamble", sector: "ConsumerStaples" }
+  - { symbol: "MA", name: "Mastercard", sector: "Financials" }
+  - { symbol: "HD", name: "Home Depot", sector: "ConsumerDiscretionary" }
+  - { symbol: "COST", name: "Costco", sector: "ConsumerStaples" }
+  - { symbol: "ORCL", name: "Oracle", sector: "Software" }
+  - { symbol: "NFLX", name: "Netflix", sector: "Internet" }

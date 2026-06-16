@@ -158,6 +158,10 @@ def backtest(
              "0 disables. Default from config."),
     vol_lookback: int = typer.Option(
         None, "--vol-lookback", help="Lookback window for realized vol. Default from config."),
+    max_per_sector: int = typer.Option(
+        None, "--max-per-sector",
+        help="Cap held names per sector (needs sector: in universe.yaml). 0=off. "
+             "Default from config."),
 ) -> None:
     """Walk-forward backtest of the strategy ensemble (no Claude, no orders)."""
     settings = _boot()
@@ -167,6 +171,7 @@ def backtest(
     from tossai.toss.client import TossClient
 
     symbols = load_universe(settings.universe_file, settings.market.value)
+    sector_map = {s.symbol: s.sector for s in symbols if s.sector}
     strategy = build_strategy(settings)
     count = max(int(years * 252) + 10, getattr(strategy, "required_history", 260) + 10)
 
@@ -190,7 +195,14 @@ def backtest(
         trend_ma=settings.backtest_trend_ma if trend_ma is None else trend_ma,
         vol_target=settings.backtest_vol_target if vol_target is None else vol_target,
         vol_lookback=settings.backtest_vol_lookback if vol_lookback is None else vol_lookback,
+        sector_map=sector_map,
+        max_per_sector=settings.max_per_sector if max_per_sector is None else max_per_sector,
     )
+    if sector_map:
+        typer.echo(f"(sector cap: ≤{settings.max_per_sector if max_per_sector is None else max_per_sector}"
+                   f"/sector, {len(set(sector_map.values()))} sectors labeled)")
+    else:
+        typer.echo("(no sector labels in universe.yaml — sector cap inactive; add `sector:` to enable)")
     typer.echo(result.summary())
 
 

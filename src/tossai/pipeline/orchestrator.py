@@ -62,6 +62,14 @@ class Orchestrator:
         symbols = load_universe(self.s.universe_file, self.s.market.value)
         candle_map, markets = self._fetch_candles(symbols)
         candidates = self.screener.screen_universe(candle_map, markets)
+        # Diversification cap: don't let one sector dominate the analyzed set.
+        if self.s.max_per_sector > 0:
+            from tossai.screening.selection import diversify_by_sector
+
+            sector_map = {s.symbol: s.sector for s in symbols if s.sector}
+            if sector_map:
+                candidates = diversify_by_sector(
+                    candidates, sector_map, len(candidates), self.s.max_per_sector)
 
         engine = self.engine or ClaudeEngine(self.s)
         from tossai.context.provider import build_market_context_provider

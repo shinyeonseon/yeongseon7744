@@ -18,6 +18,7 @@ class Symbol:
     symbol: str
     market: str
     name: str | None = None
+    sector: str | None = None
 
 
 def load_universe(path: str, market_setting: str = "BOTH") -> list[Symbol]:
@@ -25,10 +26,13 @@ def load_universe(path: str, market_setting: str = "BOTH") -> list[Symbol]:
 
     Expected YAML shape:
         KRX:
-          - { symbol: "005930", name: "Samsung Electronics" }
+          - { symbol: "005930", name: "Samsung Electronics", sector: "Semiconductor" }
           - "000660"
         US:
-          - { symbol: "AAPL", name: "Apple" }
+          - { symbol: "AAPL", name: "Apple", sector: "TechHardware" }
+
+    ``sector`` is optional; it powers the diversification cap (max names per
+    sector). Symbols without a sector are never capped (treated as their own bucket).
     """
     p = Path(path)
     if not p.exists():
@@ -50,6 +54,7 @@ def load_universe(path: str, market_setting: str = "BOTH") -> list[Symbol]:
                         symbol=str(entry["symbol"]),
                         market=market.upper(),
                         name=entry.get("name"),
+                        sector=entry.get("sector"),
                     )
                 )
     log.info("loaded %d symbols for markets %s", len(out), sorted(active))

@@ -13,6 +13,7 @@ from tossai.backtest.metrics import PerformanceMetrics, compute_metrics
 from tossai.logging_setup import get_logger
 from tossai.models import Candle
 from tossai.screening.allocation import inverse_vol_weights
+from tossai.screening.selection import diversify_by_sector
 
 log = get_logger(__name__)
 
@@ -85,6 +86,8 @@ def walk_forward_backtest(
     trend_ma: int = 200,
     vol_target: float = 0.0,
     vol_lookback: int = 20,
+    sector_map: dict[str, str] | None = None,
+    max_per_sector: int = 0,
 ) -> BacktestResult:
     markets = markets or {}
     closes, length = _aligned_closes(candle_map)
@@ -117,7 +120,8 @@ def walk_forward_backtest(
         if step % rebalance_days == 0:
             sliced = {sym: candles[: k + 1] for sym, candles in aligned.items()}
             candidates = strategy.screen_universe(sliced, markets)
-            holdings = [c.symbol for c in candidates[:top_n]]
+            picked = diversify_by_sector(candidates, sector_map, top_n, max_per_sector)
+            holdings = [c.symbol for c in picked]
             weights = _weights(holdings, sliced, weighting, risk_parity_lookback)
             # Cost on turnover (sum of |Δweight|), charged forward so the $1 base
             # is preserved and the drag is visible in returns.
