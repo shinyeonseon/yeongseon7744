@@ -61,6 +61,28 @@ def test_build_notifiers_warns_when_slack_unconfigured(settings):
     assert not any(type(n).__name__ == "SlackNotifier" for n in notifiers)
 
 
+def test_post_to_slack_posts_when_configured(settings):
+    from tossai.output.alerts import post_to_slack
+
+    settings.alert_channels = "console,slack"
+    settings.slack_bot_token = "xoxb-x"
+    settings.slack_channel = "C123"
+    fake = _FakeSlackClient()
+    blocks = [{"type": "section", "text": {"type": "mrkdwn", "text": "hi"}}]
+    assert post_to_slack(settings, blocks, "Morning briefing", client=fake) is True
+    assert fake.posts[0][0] == "C123"
+    assert fake.posts[0][2] == "Morning briefing"
+
+
+def test_post_to_slack_noop_without_slack_channel(settings):
+    from tossai.output.alerts import post_to_slack
+
+    settings.alert_channels = "console"  # slack not enabled
+    fake = _FakeSlackClient()
+    assert post_to_slack(settings, [{"x": 1}], "m", client=fake) is False
+    assert fake.posts == []
+
+
 def test_post_message_splits_over_block_limit():
     from tossai.slack.web_client import SlackClient
 

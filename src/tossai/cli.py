@@ -324,6 +324,25 @@ def ask(
 
 
 @app.command()
+def briefing(
+    weekly: bool = typer.Option(False, "--weekly", help="Post the weekly briefing instead of morning."),
+    slack: bool = typer.Option(True, "--slack/--no-slack", help="Post to Slack (default) or just generate."),
+) -> None:
+    """Generate and post a morning (or weekly) briefing — for a daily cron."""
+    settings = _boot()
+    from tossai.output import alerts
+    from tossai.scheduler.briefings import generate_morning_briefing, generate_weekly_briefing
+
+    bs = generate_weekly_briefing(settings) if weekly else generate_morning_briefing(settings)
+    label = "Weekly briefing" if weekly else "Morning briefing"
+    if slack:
+        sent = alerts.post_to_slack(settings, bs, label)
+        typer.echo(f"{label}: {'posted to Slack' if sent else 'not posted (see logs)'}")
+    else:
+        typer.echo(f"{label} generated ({len(bs)} blocks; --slack to post).")
+
+
+@app.command()
 def risk(
     no_slack: bool = typer.Option(False, "--no-slack", help="Console only; don't push to Slack."),
 ) -> None:

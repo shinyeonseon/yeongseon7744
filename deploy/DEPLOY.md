@@ -168,12 +168,20 @@ Slack 앱 설정 > **Slash Commands**에 커맨드를 등록해야 합니다:
 (`/opt/tossai`, `/etc/tossai/.env`)가 안 맞습니다. 앱이 **cwd의 `.env`를 자동 로드**하므로
 (`EnvironmentFile` 불필요) **cron이 가장 간단**합니다. 경로는 절대경로로:
 
+아래는 EC2 타임존이 **`Asia/Seoul`(KST)** 인 경우의 예입니다(cron이 KST로 해석):
+
 ```cron
 # 추천: 평일 30분마다 (장중에만 Claude 호출, 장외엔 억제)
 */30 * * * 1-5 cd /home/ubuntu/tossai && /home/ubuntu/tossai/.venv/bin/python -m tossai run-once  >> /home/ubuntu/tossai/logs/run.cron.log   2>&1
-# 성과 적재: 평일 1회, 미 장마감 후(22:00 UTC ≈ KST 07:00)
-0 22 * * 1-5   cd /home/ubuntu/tossai && /home/ubuntu/tossai/.venv/bin/python -m tossai daily --no-slack >> /home/ubuntu/tossai/logs/daily.cron.log 2>&1
+# 모닝 브리핑: 평일 아침 1회 Slack 발송 (보유+후보+거시 요약)
+0  8  * * 1-5 cd /home/ubuntu/tossai && /home/ubuntu/tossai/.venv/bin/python -m tossai briefing            >> /home/ubuntu/tossai/logs/brief.cron.log  2>&1
+# 보유종목 조언 + 성과 적재: 평일 미 장마감 직후(06:30 KST), Slack 발송
+30 6  * * 1-5 cd /home/ubuntu/tossai && /home/ubuntu/tossai/.venv/bin/python -m tossai daily --slack       >> /home/ubuntu/tossai/logs/daily.cron.log  2>&1
 ```
+- `daily --slack` → 보유종목 ADD/HOLD/TRIM/SELL 조언이 Slack으로도 갑니다(원장 적재는 그대로).
+- `briefing` → 모닝 브리핑을 Slack에 발송(serve 서버 없이 cron만으로). `--weekly`로 주간 요약도 가능.
+- 06:30 KST는 **미국 장 마감 직후**라 그날 종가 기준으로 신선한 조언이 나옵니다.
+
 `mkdir -p ~/tossai/logs` 후 `crontab -e`로 등록, `crontab -l`로 확인. (홈 배포에선 위 systemd
 유닛/타이머는 enable 하지 마세요.)
 

@@ -156,6 +156,28 @@ def dispatch_portfolio(settings: Settings, report) -> None:
         log.error("portfolio slack push failed: %s", exc)
 
 
+def post_to_slack(settings: Settings, blocks: list[dict], label: str = "", client=None) -> bool:
+    """Post ready-made blocks to the configured Slack channel. Returns True if sent.
+
+    Safe no-op (logged) when slack isn't an alert channel or creds are missing —
+    so a briefing cron job doesn't crash on a box without Slack set up.
+    """
+    if "slack" not in settings.channels():
+        log.info("slack not an alert channel; skipping post (%s)", label or "blocks")
+        return False
+    if not (settings.slack_bot_token and settings.slack_channel):
+        log.warning("slack channel enabled but SLACK_BOT_TOKEN/SLACK_CHANNEL missing")
+        return False
+    if client is None:
+        from tossai.slack.web_client import SlackClient
+        client = SlackClient(settings.slack_bot_token)
+    try:
+        return client.post_message(settings.slack_channel, blocks, label)
+    except Exception as exc:  # never break the CLI on a Slack hiccup
+        log.error("slack post failed (%s): %s", label, exc)
+        return False
+
+
 def build_notifiers(settings: Settings) -> list[Notifier]:
     notifiers: list[Notifier] = []
     channels = settings.channels()
