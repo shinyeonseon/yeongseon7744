@@ -41,9 +41,36 @@ def test_parse_earnings_date_variants():
 
 def test_fetch_macro_without_key_still_has_fomc(settings):
     settings.fred_api_key = ""
-    snap = sources.fetch_macro(settings, today=date(2026, 6, 15))
+    # No key + a mock client that returns no F&G → indicators stay empty (offline).
+    client = httpx.Client(transport=httpx.MockTransport(lambda req: httpx.Response(200, json={})))
+    snap = sources.fetch_macro(settings, http=client, today=date(2026, 6, 15))
     assert snap.indicators == {}
     assert snap.upcoming and snap.upcoming[0].startswith("FOMC")
+
+
+def test_fetch_fear_greed_parses(settings):
+    def handler(req: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"fear_and_greed": {"score": 25.4, "rating": "extreme fear"}})
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    assert sources.fetch_fear_greed(settings, http=client) == (25.4, "극단적공포")
+
+
+def test_fetch_macro_adds_spreads_and_fear_greed(settings):
+    settings.fred_api_key = "k"
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        if "fearandgreed" in str(req.url):
+            return httpx.Response(200, json={"fear_and_greed": {"score": 72.0, "rating": "greed"}})
+        series = req.url.params.get("series_id")
+        val = {"T10Y2Y": "-0.18", "BAMLH0A0HYM2": "3.25"}.get(series, "4.0")
+        return httpx.Response(200, json={"observations": [{"value": val}]})
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    snap = sources.fetch_macro(settings, http=client, today=date(2026, 6, 15))
+    assert snap.indicators["10Y-2Y"] == "-0.18%p"      # inverted shows the minus
+    assert snap.indicators["HY스프레드"] == "+3.25%p"
+    assert snap.indicators["공포탐욕"] == "72(탐욕)"
 
 
 def test_fetch_macro_with_fred(settings):
