@@ -319,7 +319,10 @@ def help_blocks() -> list[dict]:
 
 
 def advisor_blocks(text: str) -> list[dict]:
-    return [_header("🧑‍💼 박부장"), _section(_truncate(text, 2900)), _disclaimer_block()]
+    # Claude emits standard Markdown ('**bold**'); convert to Slack mrkdwn so the
+    # asterisks render as bold instead of showing up literally. _text_sections
+    # splits long answers across blocks rather than truncating.
+    return [_header("🧑‍💼 박부장"), *_text_sections(_slack_mrkdwn(text)), _disclaimer_block()]
 
 
 def error_blocks(message: str) -> list[dict]:

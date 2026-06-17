@@ -111,3 +111,20 @@ def test_long_body_splits_into_multiple_sections():
     assert text.count("y" * 200) >= 1      # the body is preserved
     section_count = sum(1 for b in bs if b.get("type") == "section")
     assert section_count >= 3              # lead + >=2 body chunks
+
+
+def test_advisor_blocks_converts_markdown_bold():
+    # Claude emits '**bold**'; Slack bold is one asterisk, so advisor_blocks must
+    # convert it (otherwise literal '**' shows up in the message).
+    bs = blocks.advisor_blocks("삼성전자는 **강한 매수**입니다.")
+    text = "".join(str(b) for b in bs)
+    assert "**" not in text
+    assert "*강한 매수*" in text
+
+
+def test_advisor_blocks_does_not_truncate_long_answer():
+    bs = blocks.advisor_blocks("가" * 6000)
+    text = "".join(str(b) for b in bs)
+    assert "…" not in text
+    section_count = sum(1 for b in bs if b.get("type") == "section")
+    assert section_count >= 2
