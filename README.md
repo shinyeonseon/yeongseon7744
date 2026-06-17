@@ -108,7 +108,8 @@ CAGR·Sharpe·MDD·승률을 동일가중 매수후보유 벤치마크와 비교
 `serve` 명령은 하나의 상주 프로세스로 **Slack 슬래시 명령 서버**와 **스케줄러**를 함께 띄웁니다
 (analysis-only — 주문 없음).
 
-**슬래시 명령**: `/recommend`(전체 분석), `/screen`(스크리닝만, 무료), `/briefing`(아침 브리핑 즉시),
+**슬래시 명령**: `/박부장`(대화형 투자부장 — 내 보유·후보·성과·시장·뉴스 기반, [사용법](docs/ADVISOR.md)),
+`/recommend`(전체 분석), `/screen`(스크리닝만, 무료), `/briefing`(아침 브리핑 즉시),
 `/status`, `/help`. 무거운 명령은 3초 내 ack 후 백그라운드 실행해 결과를 `response_url`로 전송합니다.
 
 **자동 푸시 3종**:
@@ -120,7 +121,7 @@ CAGR·Sharpe·MDD·승률을 동일가중 매수후보유 벤치마크와 비교
 1. api.slack.com/apps에서 앱 생성 → **OAuth scopes**: `commands`, `chat:write`(필요시 `chat:write.public`).
 2. 워크스페이스 설치 후 **Bot User OAuth Token**(`xoxb-…`) → `SLACK_BOT_TOKEN`, **Signing Secret** →
    `SLACK_SIGNING_SECRET`. 봇을 `SLACK_CHANNEL` 채널에 초대.
-3. **Slash Commands** `/recommend`,`/screen`,`/briefing`,`/status`,`/help` 의 Request URL을
+3. **Slash Commands** `/박부장`,`/recommend`,`/screen`,`/briefing`,`/status`,`/help` 의 Request URL을
    모두 `https://<your-host>/slack/commands`로 지정.
 4. `.env`에 `SLACK_ENABLED=true` + 위 키 입력 → `python -m tossai serve`.
 

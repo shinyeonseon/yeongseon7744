@@ -15,7 +15,8 @@
 
 - **박부장 — 대화형 AI 투자부장** (`agent/`)
   - Claude tool-use 에이전트. 읽기전용 도구로 내 데이터를 직접 조회해 한글로 답함.
-  - 도구: `read_portfolio` · `read_recommendations` · `performance` · `quote`.
+  - 도구: `read_portfolio` · `read_recommendations` · `performance` · `quote` ·
+    `market_overview`(VIX·거시·공포탐욕·FOMC) · `news`(종목 헤드라인).
   - CLI `ask`(단발/REPL) + Slack `/박부장`(별칭 `/ask`). Slack은 (채널,사용자)별 대화 메모리로
     연속 질문 맥락 유지(serve 프로세스 수명 동안, 1시간/최근 12턴).
 
@@ -34,8 +35,15 @@
   (`InternalServerError`)까지 재시도. 일시 장애로 종목 누락되던 문제 해소.
 - **FRED 견고성** — 시리즈별 독립 실패 처리(한 지표 실패가 나머지를 막지 않음),
   CPI YoY는 당월 미발표(`.`) 행을 흡수하도록 14개 관측치 요청.
+- **박부장 시장·뉴스 도구** — `market_overview`(VIX+밴드·FRED 거시·공포탐욕·다음 FOMC),
+  `news`(yfinance 종목 헤드라인) 추가. "오늘 증시 어때?"·"○○ 무슨 이슈 있어?"에 응답.
+  모닝 브리핑이 쓰던 fail-soft 소스를 그대로 재사용(새 의존성 없음).
+- **Slack 마크다운 렌더링 수정** — `advisor_blocks`가 `_slack_mrkdwn`를 거치지 않아 박부장
+  답변의 `**굵게**`가 별표 문자로 노출되던 문제 수정. 긴 답변은 `_text_sections`로 자동 분할
+  (truncation 제거).
 - **문서** — `.env.example`에 시장 컨텍스트 섹션 추가(`FRED_API_KEY` 발급 링크 포함).
   `deploy/DEPLOY.md`에 daily 타이머·홈 디렉터리 cron·박부장·브리핑 절 추가.
+  박부장 사용법·질문 카탈로그 문서 추가(`docs/ADVISOR.md`).
 
 ### 배포 메모
 - EC2 타임존이 `Asia/Seoul`이라 cron은 KST로 해석됨.
