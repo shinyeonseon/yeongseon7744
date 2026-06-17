@@ -48,6 +48,23 @@ ADVISOR_TOOLS = [
             "required": ["symbol"], "additionalProperties": False,
         },
     },
+    {
+        "name": "market_overview",
+        "description": "오늘의 시장 전반 현황을 읽는다: VIX(변동성)와 밴드, 거시지표(실업률·기준금리·"
+                       "미10년물·CPI·장단기금리차·HY스프레드), CNN 공포·탐욕 지수, 다가오는 FOMC 일정. "
+                       "'오늘 증시 어때?'·'시장 분위기'·'주요 이슈' 류 질문에 사용.",
+        "input_schema": {"type": "object", "properties": {}, "additionalProperties": False},
+    },
+    {
+        "name": "news",
+        "description": "특정 종목의 최근 뉴스 헤드라인을 읽는다. "
+                       "'엔비디아 무슨 이슈 있어?'·'○○ 뉴스 있어?' 류 질문에 사용.",
+        "input_schema": {
+            "type": "object",
+            "properties": {"symbol": {"type": "string", "description": "티커 (예: NVDA)"}},
+            "required": ["symbol"], "additionalProperties": False,
+        },
+    },
 ]
 
 
@@ -87,6 +104,10 @@ def run_tool(name: str, args: dict, ctx: AdvisorContext) -> str:
             return _performance(ctx, (args or {}).get("kind", "picks"))
         if name == "quote":
             return _quote(ctx, (args or {}).get("symbol", ""))
+        if name == "market_overview":
+            return _market_overview(ctx.s)
+        if name == "news":
+            return _news((args or {}).get("symbol", ""))
         return f"알 수 없는 도구: {name}"
     except Exception as exc:  # noqa: BLE001 - surface failures to the model as text
         log.warning("advisor tool %s failed: %s", name, exc)
@@ -189,3 +210,42 @@ def _quote(ctx: AdvisorContext, symbol: str) -> str:
         "ret_1d": ret(1), "ret_5d": ret(5), "ret_20d": ret(20),
         "as_of": candles[-1].ts.date().isoformat(),
     }, ensure_ascii=False)
+
+
+def _market_overview(settings: Settings) -> str:
+    """VIX + macro backdrop (FRED indicators, Fear&Greed, next FOMC). Reuses the
+    same fail-soft sources the morning briefing uses; degrades to whatever is
+    available (FRED indicators need FRED_API_KEY)."""
+    from tossai.context.sources import fetch_macro
+    from tossai.risk.sentiment import get_vix
+
+    out: dict = {}
+    vix = get_vix(settings)
+    if vix is not None:
+        thr = settings.vix_blackswan_threshold
+        band = "불안정" if vix >= thr else ("상승" if vix >= thr * 0.66 else "안정")
+        out["vix"] = {"value": round(vix, 2), "band": band, "threshold": thr}
+    macro = fetch_macro(settings)
+    if macro.indicators:
+        out["indicators"] = macro.indicators
+    if macro.upcoming:
+        out["upcoming_events"] = macro.upcoming
+    if not out:
+        return "시장 지표를 가져오지 못했습니다 (FRED_API_KEY 미설정 시 거시지표가 제한됩니다)."
+    return json.dumps(out, ensure_ascii=False)
+
+
+def _news(symbol: str) -> str:
+    """Recent headlines for one symbol via the shared news source."""
+    from tossai.context.sources import fetch_news
+
+    symbol = (symbol or "").strip().upper()
+    if not symbol:
+        return "티커가 비어 있습니다."
+    market = "KRX" if symbol.isdigit() else ""  # numeric code -> KRX suffix mapping
+    items = fetch_news(symbol, market, limit=5)
+    if not items:
+        return f"{symbol} 관련 최근 뉴스를 찾지 못했습니다."
+    return json.dumps(
+        {"symbol": symbol, "news": [n.as_line() for n in items]}, ensure_ascii=False
+    )

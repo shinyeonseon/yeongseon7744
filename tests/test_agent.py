@@ -81,6 +81,43 @@ def test_unknown_tool_returns_text(settings):
     assert "알 수 없는 도구" in out
 
 
+def test_market_overview_tool(settings, monkeypatch):
+    import tossai.context.sources as sources
+    import tossai.risk.sentiment as sentiment
+    from tossai.context.models import MacroSnapshot
+
+    settings.vix_blackswan_threshold = 30.0
+    monkeypatch.setattr(sentiment, "get_vix", lambda s, *a, **k: 18.5)
+    monkeypatch.setattr(sources, "fetch_macro", lambda s, **k: MacroSnapshot(
+        indicators={"기준금리": "4.50%", "공포탐욕": "62(탐욕)"},
+        upcoming=["FOMC 2026-06-17 (D-0)"]))
+    out = run_tool("market_overview", {}, AdvisorContext(settings))
+    data = json.loads(out)
+    assert data["vix"] == {"value": 18.5, "band": "안정", "threshold": 30.0}
+    assert data["indicators"]["기준금리"] == "4.50%"
+    assert "FOMC 2026-06-17 (D-0)" in data["upcoming_events"]
+
+
+def test_news_tool(settings, monkeypatch):
+    import tossai.context.sources as sources
+    from tossai.context.models import NewsItem
+
+    monkeypatch.setattr(sources, "fetch_news", lambda sym, mkt, limit=5: [
+        NewsItem(title="신제품 발표", publisher="Reuters", published="2026-06-17")])
+    out = run_tool("news", {"symbol": "nvda"}, AdvisorContext(settings))
+    data = json.loads(out)
+    assert data["symbol"] == "NVDA"
+    assert "신제품 발표" in data["news"][0]
+
+
+def test_news_tool_empty(settings, monkeypatch):
+    import tossai.context.sources as sources
+
+    monkeypatch.setattr(sources, "fetch_news", lambda sym, mkt, limit=5: [])
+    out = run_tool("news", {"symbol": "ZZZZ"}, AdvisorContext(settings))
+    assert "찾지 못했습니다" in out
+
+
 # ---- advisor tool-use loop ----------------------------------------------
 
 def test_advisor_calls_tool_then_answers(settings, tmp_path):
