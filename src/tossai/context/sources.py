@@ -238,18 +238,25 @@ def fetch_macro(settings: Settings, *, http: httpx.Client | None = None,
 
 
 def _fred_obs(client: httpx.Client, series: str, key: str, limit: int) -> list[float]:
+    """Latest `limit` numeric observations (newest first). Resilient: a single
+    series failing returns [] so it doesn't abort the other indicators."""
     url = "https://api.stlouisfed.org/fred/series/observations"
-    resp = client.get(url, params={
-        "series_id": series, "api_key": key, "file_type": "json",
-        "sort_order": "desc", "limit": limit,
-    })
-    resp.raise_for_status()
+    try:
+        resp = client.get(url, params={
+            "series_id": series, "api_key": key, "file_type": "json",
+            "sort_order": "desc", "limit": limit,
+        })
+        resp.raise_for_status()
+        observations = resp.json().get("observations", [])
+    except Exception as exc:
+        log.debug("FRED %s fetch failed: %s", series, exc)
+        return []
     vals = []
-    for o in resp.json().get("observations", []):
+    for o in observations:
         try:
             vals.append(float(o["value"]))
         except (KeyError, ValueError):
-            continue
+            continue  # skip "." placeholder rows (holidays / pending release)
     return vals
 
 
@@ -260,7 +267,9 @@ def _fred_latest(client: httpx.Client, series: str, key: str) -> float | None:
 
 
 def _fred_yoy(client: httpx.Client, series: str, key: str) -> float | None:
-    vals = _fred_obs(client, series, key, 13)  # newest first
+    # Fetch 14 (not 13) so a pending "." row for the current month — which
+    # _fred_obs drops — still leaves 13 valid months for the YoY comparison.
+    vals = _fred_obs(client, series, key, 14)  # newest first
     if len(vals) >= 13 and vals[12]:
         return (vals[0] / vals[12] - 1.0) * 100.0
     return None
