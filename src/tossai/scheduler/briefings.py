@@ -1,6 +1,7 @@
 """Briefing content generation (Block Kit, analysis-only, Claude-free).
 
-Morning: VIX + today's screened watchlist snapshot.
+Morning: macro one-liner + VIX + held-portfolio P/L (with latest advice) +
+today's screened watchlist snapshot.
 Weekly: aggregate of the past week's saved reports + VIX.
 Both reuse the existing Screener/Orchestrator, calendar, and report files.
 """
@@ -29,10 +30,72 @@ def _screen(settings: Settings):
         return Orchestrator(settings, client).screen_only()
 
 
+def _latest_advice_actions(reports_dir: str) -> dict[str, str]:
+    """{symbol: action} from the newest portfolio report, for annotating holdings."""
+    d = Path(reports_dir)
+    files = sorted(d.glob("portfolio_*.json")) if d.exists() else []
+    if not files:
+        return {}
+    try:
+        data = json.loads(files[-1].read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    out: dict[str, str] = {}
+    for r in data.get("results", []):
+        sym = r.get("position", {}).get("symbol")
+        act = r.get("advice", {}).get("action")
+        if sym and act:
+            out[sym] = act
+    return out
+
+
+def _holdings_summary(settings: Settings) -> dict | None:
+    """Value-weighted P/L + per-position lines (with latest advice), or None.
+
+    Fail-soft: returns None when no account is set, holdings can't be fetched,
+    or there are no open positions — the briefing then just omits the section.
+    """
+    if not settings.toss_account_seq:
+        return None
+    from tossai.toss.client import TossClient
+
+    try:
+        with TossClient(settings) as client:
+            positions = [p for p in client.get_holdings() if p.quantity > 0]
+    except Exception as exc:
+        log.warning("briefing holdings fetch failed: %s", exc)
+        return None
+    if not positions:
+        return None
+
+    actions = _latest_advice_actions(settings.reports_dir)
+    icon = {"TRIM": "⚠️", "SELL": "🚨", "ADD": "🟢"}
+    positions.sort(key=lambda p: p.market_value, reverse=True)
+    lines, tot_mv, tot_w = [], 0.0, 0.0
+    for p in positions:
+        pl = p.pl_rate
+        if pl is not None:
+            tot_mv += p.market_value
+            tot_w += p.market_value * pl
+        act = actions.get(p.symbol, "")
+        tag = f" {icon.get(act, '')}{act}".rstrip() if act else ""
+        pl_s = f"{pl * 100:+.0f}%" if pl is not None else "—"
+        lines.append(f"{p.symbol} {pl_s}{tag}")
+    avg_pl = tot_w / tot_mv if tot_mv else None
+    return {"count": len(positions), "avg_pl": avg_pl, "lines": lines}
+
+
 def generate_morning_briefing(settings: Settings) -> list[dict]:
     market_label = "+".join(markets_for(settings.briefing_market.value))
     market_open = any_market_open(settings.briefing_market.value)
     vix = get_vix(settings)
+    macro_line = ""
+    try:
+        from tossai.context.provider import MarketContextProvider
+        macro_line = MarketContextProvider(settings).macro().as_line()
+    except Exception as exc:  # macro is a nice-to-have, never block the briefing
+        log.warning("morning briefing macro fetch failed: %s", exc)
+    holdings = _holdings_summary(settings)
     try:
         candidates = _screen(settings)
     except Exception as exc:  # never let a data hiccup kill the briefing
@@ -41,6 +104,7 @@ def generate_morning_briefing(settings: Settings) -> list[dict]:
     return blocks.morning_briefing_blocks(
         market_label, market_open, vix, settings.vix_blackswan_threshold,
         candidates, datetime.now(UTC).strftime("%Y-%m-%d"),
+        macro_line=macro_line, holdings=holdings,
     )
 
 

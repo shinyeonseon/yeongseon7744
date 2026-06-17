@@ -232,18 +232,29 @@ def morning_briefing_blocks(
     vix_threshold: float,
     candidates: list[Candidate],
     date_label: str,
+    macro_line: str = "",
+    holdings: dict | None = None,
 ) -> list[dict]:
     vix_text = _vix_phrase(vix, vix_threshold)
     blocks: list[dict] = [
         _header("🌅 모닝 브리핑"),
         _section(f"*{date_label}*  ·  시장 `{market_label}` (개장={market_open})\n{vix_text}"),
     ]
+    if macro_line:
+        blocks.append(_context(f"🌐 {macro_line}"))
+    if holdings and holdings.get("lines"):
+        avg = holdings.get("avg_pl")
+        avg_s = f"평가손익 *{avg * 100:+.1f}%*  ·  " if avg is not None else ""
+        blocks.append(_section(
+            f"*📊 내 포트폴리오* ({holdings['count']}종목)  {avg_s}\n"
+            + " · ".join(holdings["lines"])
+        ))
     if candidates:
         lines = [
             f"• *{c.symbol}* [{c.market}]  점수 *{c.score:.3f}*  가격 {c.price}"
             for c in candidates[:10]
         ]
-        blocks.append(_section("*오늘의 스크리닝 관심종목*\n" + "\n".join(lines)))
+        blocks.append(_section("*🎯 오늘의 스크리닝 관심종목*\n" + "\n".join(lines)))
     else:
         blocks.append(_section("_오늘은 주목할 만한 종목이 없습니다._"))
     blocks.append(_disclaimer_block())
